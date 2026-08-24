@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PawPrint, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import html2canvas from 'html2canvas';
+import { getPetPublicUrl } from '@/lib/qr';
 
 interface PrintableTagCardProps {
   petName: string;
@@ -20,10 +21,11 @@ export const PrintableTagCard: React.FC<PrintableTagCardProps> = ({
   publicId,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [publicUrl, setPublicUrl] = useState(`https://coco-website-ten.vercel.app/pet/${publicId}`);
 
-  const publicUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/pet/${publicId}`
-    : `http://localhost:3000/pet/${publicId}`;
+  useEffect(() => {
+    setPublicUrl(getPetPublicUrl(publicId));
+  }, [publicId]);
 
   const downloadPrintableCard = async () => {
     if (!cardRef.current) return;

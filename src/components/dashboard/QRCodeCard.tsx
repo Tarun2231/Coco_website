@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, ExternalLink, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { getPetPublicUrl } from '@/lib/qr';
 
 interface QRCodeCardProps {
   petName: string;
@@ -11,9 +12,11 @@ interface QRCodeCardProps {
 }
 
 export const QRCodeCard: React.FC<QRCodeCardProps> = ({ petName, publicId }) => {
-  const publicUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/pet/${publicId}`
-    : `http://localhost:3000/pet/${publicId}`;
+  const [publicUrl, setPublicUrl] = useState(`https://coco-website-ten.vercel.app/pet/${publicId}`);
+
+  useEffect(() => {
+    setPublicUrl(getPetPublicUrl(publicId));
+  }, [publicId]);
 
   const downloadQR = () => {
     const svg = document.getElementById('pet-qr-svg');
@@ -70,9 +73,13 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ petName, publicId }) => 
         />
       </div>
 
+      <p className="text-[10px] text-slate-400 font-mono mt-2 truncate max-w-full">
+        {publicUrl}
+      </p>
+
       {/* Quick link */}
       <a
-        href={`/pet/${publicId}`}
+        href={publicUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-3 text-xs text-slate-500 hover:text-brand-coral font-medium flex items-center gap-1 transition-colors"
