@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -43,7 +45,6 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create Notification for Pet Owner
     const pet = await db.pet.findUnique({
       where: { id: petId },
       select: { userId: true, name: true },

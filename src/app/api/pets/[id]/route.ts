@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     const petIdentifier = params.id;
 
-    // Search by publicId or id
     const pet = await db.pet.findFirst({
       where: {
         OR: [{ publicId: petIdentifier }, { id: petIdentifier }],
@@ -31,21 +32,24 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Pet not found' }, { status: 404 });
     }
 
-    // Record QR Scan count metric
-    await db.qRCode.updateMany({
-      where: { petId: pet.id },
-      data: { scanCount: { increment: 1 } },
-    });
+    try {
+      await db.qRCode.updateMany({
+        where: { petId: pet.id },
+        data: { scanCount: { increment: 1 } },
+      });
 
-    await db.qRScan.create({
-      data: {
-        petId: pet.id,
-        device: 'Mobile Browser',
-        browser: 'Mobile Web',
-        city: 'Hyderabad',
-        country: 'India',
-      },
-    });
+      await db.qRScan.create({
+        data: {
+          petId: pet.id,
+          device: 'Mobile Browser',
+          browser: 'Mobile Web',
+          city: 'Hyderabad',
+          country: 'India',
+        },
+      });
+    } catch (metricErr) {
+      // Ignore metric error
+    }
 
     return NextResponse.json({ pet });
   } catch (err) {
