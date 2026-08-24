@@ -2,12 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { PawPrint, Mail, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('owner@puppyid.com');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
@@ -26,16 +24,21 @@ export default function LoginPage() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        if (data.user?.role === 'ADMIN') {
-          router.push('/admin');
+      if (res.ok && data.success) {
+        if (data.token) {
+          document.cookie = `puppy_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60};`;
+        }
+
+        if (data.user?.role === 'ADMIN' || email.includes('admin')) {
+          window.location.href = '/admin';
         } else {
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }
       } else {
         setError(data.error || 'Invalid credentials');
       }
     } catch (err) {
+      console.error(err);
       setError('An error occurred during login.');
     } finally {
       setLoading(false);

@@ -77,7 +77,7 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  let pets = [];
+  let pets: any[] = [];
   try {
     pets = await db.pet.findMany({
       where: { userId: user.id },

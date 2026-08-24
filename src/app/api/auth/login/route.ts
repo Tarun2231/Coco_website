@@ -7,24 +7,27 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanPassword = String(password).trim();
 
-    // 1. Check Demo Accounts for instant zero-fail login
-    if (cleanEmail === 'owner@puppyid.com' && (password === 'password123' || password === 'owner123')) {
+    // 1. Instant Demo Accounts (Zero-fail login on Vercel)
+    if (cleanEmail === 'owner@puppyid.com' && (cleanPassword === 'password123' || cleanPassword === 'owner123')) {
       const token = signToken({
         userId: 'demo-owner-id',
         email: 'owner@puppyid.com',
         role: 'USER',
       });
 
-      const res = NextResponse.json({
+      const response = NextResponse.json({
         success: true,
+        token,
         user: {
           id: 'demo-owner-id',
           email: 'owner@puppyid.com',
@@ -33,26 +36,24 @@ export async function POST(req: Request) {
         },
       });
 
-      res.cookies.set({
-        name: 'puppy_token',
-        value: token,
-        httpOnly: true,
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
-      });
+      response.headers.set(
+        'Set-Cookie',
+        `puppy_token=${token}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`
+      );
 
-      return res;
+      return response;
     }
 
-    if (cleanEmail === 'admin@puppyid.com' && (password === 'adminpassword123' || password === 'admin123')) {
+    if (cleanEmail === 'admin@puppyid.com' && (cleanPassword === 'adminpassword123' || cleanPassword === 'admin123')) {
       const token = signToken({
         userId: 'demo-admin-id',
         email: 'admin@puppyid.com',
         role: 'ADMIN',
       });
 
-      const res = NextResponse.json({
+      const response = NextResponse.json({
         success: true,
+        token,
         user: {
           id: 'demo-admin-id',
           email: 'admin@puppyid.com',
@@ -61,25 +62,22 @@ export async function POST(req: Request) {
         },
       });
 
-      res.cookies.set({
-        name: 'puppy_token',
-        value: token,
-        httpOnly: true,
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
-      });
+      response.headers.set(
+        'Set-Cookie',
+        `puppy_token=${token}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`
+      );
 
-      return res;
+      return response;
     }
 
-    // 2. Database User Lookup
+    // 2. Database User Lookup (Try DB if configured)
     try {
       const user = await db.user.findUnique({
         where: { email: cleanEmail },
       });
 
       if (user) {
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(cleanPassword, user.password);
         if (isMatch) {
           const token = signToken({
             userId: user.id,
@@ -87,8 +85,9 @@ export async function POST(req: Request) {
             role: user.role,
           });
 
-          const res = NextResponse.json({
+          const response = NextResponse.json({
             success: true,
+            token,
             user: {
               id: user.id,
               email: user.email,
@@ -97,15 +96,12 @@ export async function POST(req: Request) {
             },
           });
 
-          res.cookies.set({
-            name: 'puppy_token',
-            value: token,
-            httpOnly: true,
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60,
-          });
+          response.headers.set(
+            'Set-Cookie',
+            `puppy_token=${token}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`
+          );
 
-          return res;
+          return response;
         }
       }
     } catch (dbErr) {
@@ -114,7 +110,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login route error:', err);
     return NextResponse.json({ error: 'Failed to process login request' }, { status: 500 });
   }
 }

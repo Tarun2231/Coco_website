@@ -7,13 +7,14 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, phone } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { name, email, password, phone } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json({ error: 'Name, email, and password are required' }, { status: 400 });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = String(email).toLowerCase().trim();
     let userId = `user-${Math.random().toString(36).substring(2, 8)}`;
     let userRole = 'USER';
 
@@ -48,8 +49,9 @@ export async function POST(req: Request) {
       role: userRole,
     });
 
-    const res = NextResponse.json({
+    const response = NextResponse.json({
       success: true,
+      token,
       user: {
         id: userId,
         email: cleanEmail,
@@ -58,15 +60,12 @@ export async function POST(req: Request) {
       },
     });
 
-    res.cookies.set({
-      name: 'puppy_token',
-      value: token,
-      httpOnly: true,
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    response.headers.set(
+      'Set-Cookie',
+      `puppy_token=${token}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`
+    );
 
-    return res;
+    return response;
   } catch (err) {
     console.error('Register error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
