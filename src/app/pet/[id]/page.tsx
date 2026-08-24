@@ -12,7 +12,7 @@ const fallbackBrunoPet = {
   species: 'Dog',
   breed: 'Golden Retriever',
   gender: 'Male',
-  dob: new Date('2025-05-15'),
+  dob: '2025-05-15',
   color: 'Golden',
   weight: '28 kg',
   microchipId: '988 000 123 456 789',
@@ -21,7 +21,7 @@ const fallbackBrunoPet = {
   photo: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&h=600&fit=crop',
   isLost: true,
   lostNotes: 'Bruno got loose near Banjara Hills Park around 4 PM. He is very friendly, wearing a brown leather collar with a Puppy ID QR tag.',
-  lastSeenDate: new Date('2026-08-24'),
+  lastSeenDate: '2026-08-24',
   lastSeenTime: '04:00 PM',
   lastSeenLocation: 'Road No. 5, Banjara Hills, Hyderabad',
   lastSeenLat: 17.4156,
@@ -53,10 +53,10 @@ const fallbackBrunoPet = {
     address: '12, Green Meadows Apartment, Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India',
   },
   vaccinations: [
-    { id: '1', vaccineName: 'DHPP', dateAdministered: new Date('2026-03-12'), status: 'COMPLETED' },
-    { id: '2', vaccineName: 'Rabies', dateAdministered: new Date('2026-03-12'), status: 'COMPLETED' },
-    { id: '3', vaccineName: 'Booster', dateAdministered: new Date('2026-04-10'), status: 'UPCOMING' },
-    { id: '4', vaccineName: 'Kennel Cough', dateAdministered: new Date('2026-04-10'), status: 'COMPLETED' },
+    { id: '1', vaccineName: 'DHPP', dateAdministered: '2026-03-12', status: 'COMPLETED' },
+    { id: '2', vaccineName: 'Rabies', dateAdministered: '2026-03-12', status: 'COMPLETED' },
+    { id: '3', vaccineName: 'Booster', dateAdministered: '2026-04-10', status: 'UPCOMING' },
+    { id: '4', vaccineName: 'Kennel Cough', dateAdministered: '2026-04-10', status: 'COMPLETED' },
   ],
 };
 
@@ -89,11 +89,12 @@ export default async function PublicPetPage({ params }: { params: { id: string }
     }
 
     if (pet) {
-      return <PublicPetView pet={pet} />;
+      const serializedPet = JSON.parse(JSON.stringify(pet));
+      return <PublicPetView pet={serializedPet} />;
     }
   } catch (err) {
     console.error('Unhandled error in PublicPetPage:', err);
   }
 
-  return <PublicPetView pet={fallbackBrunoPet} />;
+  return <PublicPetView pet={JSON.parse(JSON.stringify(fallbackBrunoPet))} />;
 }
