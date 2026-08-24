@@ -61,35 +61,39 @@ const fallbackBrunoPet = {
 };
 
 export default async function PublicPetPage({ params }: { params: { id: string } }) {
-  const petIdentifier = params.id;
-
   try {
-    const pet = await db.pet.findFirst({
-      where: {
-        OR: [{ publicId: petIdentifier }, { id: petIdentifier }],
-      },
-      include: {
-        privacySetting: true,
-        user: {
-          select: {
-            name: true,
-            email: true,
-            phone: true,
-            altPhone: true,
-            address: true,
-          },
+    const petIdentifier = params?.id || 'bruno';
+
+    let pet = null;
+    try {
+      pet = await db.pet.findFirst({
+        where: {
+          OR: [{ publicId: petIdentifier }, { id: petIdentifier }],
         },
-        vaccinations: true,
-      },
-    });
+        include: {
+          privacySetting: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+              phone: true,
+              altPhone: true,
+              address: true,
+            },
+          },
+          vaccinations: true,
+        },
+      });
+    } catch (dbErr) {
+      console.error('Prisma fetch error in /pet/[id]:', dbErr);
+    }
 
     if (pet) {
       return <PublicPetView pet={pet} />;
     }
   } catch (err) {
-    console.error('Database fetch error in /pet/[id], falling back to demo data:', err);
+    console.error('Unhandled error in PublicPetPage:', err);
   }
 
-  // Fallback to Bruno demo pet if DB is unseeded or pet not found
   return <PublicPetView pet={fallbackBrunoPet} />;
 }
