@@ -1,0 +1,223 @@
+// Prisma Schema for Puppy ID (SQLite & PostgreSQL Compatible)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  phone         String?
+  altPhone      String?
+  address       String?
+  avatar        String?
+  role          String         @default("USER") // USER | ADMIN
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  pets          Pet[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+}
+
+model Pet {
+  id               String          @id @default(uuid())
+  publicId         String          @unique // Short URL slug e.g. "bruno"
+  userId           String
+  name             String
+  species          String          @default("Dog")
+  breed            String
+  gender           String
+  dob              DateTime?
+  color            String?
+  weight           String?
+  microchipId      String?
+  registrationNo   String?
+  licenseNo        String?
+  photo            String?
+  
+  // Lost Pet Mode Fields
+  isLost           Boolean         @default(false)
+  lostNotes        String?
+  lastSeenDate     DateTime?
+  lastSeenTime     String?
+  lastSeenLocation String?
+  lastSeenLat      Float?
+  lastSeenLng      Float?
+  rewardAmount     String?
+
+  importantNotes   String?
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privacySetting   PrivacySetting?
+  vaccinations     Vaccination[]
+  expenses         Expense[]
+  reminders        Reminder[]
+  documents        PetDocument[]
+  qrCode           QRCode?
+  qrScans          QRScan[]
+  finderMessages   FinderMessage[]
+  notifications    Notification[]
+}
+
+model PrivacySetting {
+  id               String   @id @default(uuid())
+  petId            String   @unique
+  showName         Boolean  @default(true)
+  showPhoto        Boolean  @default(true)
+  showBreed        Boolean  @default(true)
+  showGender       Boolean  @default(true)
+  showAge          Boolean  @default(true)
+  showColor        Boolean  @default(true)
+  showWeight       Boolean  @default(true)
+  showMicrochip    Boolean  @default(true)
+  showPhone        Boolean  @default(true)
+  showAltPhone     Boolean  @default(true)
+  showEmail        Boolean  @default(true)
+  showAddress      Boolean  @default(true)
+  showVaccinations Boolean  @default(true)
+  showNotes        Boolean  @default(true)
+  showLastSeen     Boolean  @default(true)
+
+  pet              Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Vaccination {
+  id               String   @id @default(uuid())
+  petId            String
+  vaccineName      String
+  dateAdministered DateTime
+  nextDueDate      DateTime?
+  vetName          String?
+  clinic           String?
+  batchNo          String?
+  notes            String?
+  certificateUrl   String?
+  status           String   @default("COMPLETED") // COMPLETED | UPCOMING | OVERDUE
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  pet              Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Expense {
+  id               String   @id @default(uuid())
+  petId            String
+  category         String   // Food, Vet, Vaccination, Medicine, Grooming, Toys, Accessories, Training, Insurance, Boarding, Other
+  description      String
+  amount           Float
+  currency         String   @default("₹")
+  date             DateTime
+  vendor           String?
+  paymentMethod    String?  @default("UPI / Card")
+  notes            String?
+  receiptUrl       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  pet              Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id          String   @id @default(uuid())
+  petId       String
+  title       String
+  category    String   // Vaccination, Deworming, Flea Treatment, Grooming, Vet Visit, Medicine, Food, Custom
+  date        DateTime
+  time        String?  @default("09:00 AM")
+  repeat      String   @default("ONCE") // ONCE | DAILY | WEEKLY | MONTHLY | EVERY_3_MONTHS | EVERY_6_MONTHS | YEARLY
+  notes       String?
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model PetDocument {
+  id          String   @id @default(uuid())
+  petId       String
+  title       String
+  category    String   // Vaccination Certificate, Medical Record, Vet Report, Insurance, Registration, Adoption Papers, Other
+  fileUrl     String
+  fileType    String   // pdf, image, etc.
+  fileSize    String?
+  uploadedAt  DateTime @default(now())
+
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model QRCode {
+  id          String   @id @default(uuid())
+  petId       String   @unique
+  qrCodeUrl   String
+  scanCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model QRScan {
+  id          String   @id @default(uuid())
+  petId       String
+  scannedAt   DateTime @default(now())
+  ip          String?
+  userAgent   String?
+  device      String?  @default("Mobile")
+  browser     String?  @default("Chrome")
+  city        String?  @default("Hyderabad")
+  country     String?  @default("India")
+
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model FinderMessage {
+  id             String   @id @default(uuid())
+  petId          String
+  senderName     String
+  senderPhone    String?
+  message        String
+  finderLocation String?
+  finderPhotoUrl String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  petId     String?
+  title     String
+  message   String
+  type      String   // VACCINATION, REMINDER, MESSAGE, LOST_MODE, PROFILE_VIEW
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet       Pet?     @relation(fields: [petId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String
+  entity      String
+  entityId    String?
+  details     String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
