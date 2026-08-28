@@ -15,6 +15,9 @@ export async function POST(req: Request) {
     }
 
     const cleanEmail = String(email).toLowerCase().trim();
+    const cleanName = String(name).trim();
+    const cleanPhone = phone ? String(phone).trim() : '+91 98765 43210';
+
     let userId = `user-${Math.random().toString(36).substring(2, 8)}`;
     let userRole = 'USER';
 
@@ -31,10 +34,10 @@ export async function POST(req: Request) {
 
       const user = await db.user.create({
         data: {
-          name,
+          name: cleanName,
           email: cleanEmail,
           password: hashedPassword,
-          phone,
+          phone: cleanPhone,
           role: 'USER',
         },
       });
@@ -43,10 +46,13 @@ export async function POST(req: Request) {
       console.error('DB Registration error, proceeding with session token:', dbErr);
     }
 
+    // Sign token preserving cleanName and cleanPhone
     const token = signToken({
       userId,
       email: cleanEmail,
       role: userRole,
+      name: cleanName,
+      phone: cleanPhone,
     });
 
     const response = NextResponse.json({
@@ -55,7 +61,8 @@ export async function POST(req: Request) {
       user: {
         id: userId,
         email: cleanEmail,
-        name,
+        name: cleanName,
+        phone: cleanPhone,
         role: userRole,
       },
     });

@@ -96,7 +96,18 @@ export default async function DashboardPage() {
   }
 
   if (!pets || pets.length === 0) {
-    pets = [fallbackBrunoPet as any];
+    const customUserPet = {
+      ...fallbackBrunoPet,
+      id: `pet-${user.id}`,
+      user: {
+        name: user.name,
+        phone: user.phone || '+91 98765 43210',
+        altPhone: user.altPhone || '+91 91234 56789',
+        email: user.email,
+        address: user.address || 'Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India',
+      },
+    };
+    pets = [customUserPet as any];
   }
 
   return <DashboardClient initialPets={pets as any} />;

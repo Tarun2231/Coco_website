@@ -8,6 +8,8 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  name?: string;
+  phone?: string;
 }
 
 export function signToken(payload: TokenPayload): string {
@@ -51,16 +53,16 @@ export async function getCurrentUser() {
     console.error('getCurrentUser DB error, falling back to session payload:', err);
   }
 
-  // Fallback session object for demo accounts or serverless environments
+  // Preserve user's real registered name, email & phone from token payload!
   return {
     id: payload.userId,
     email: payload.email,
-    name: payload.email.includes('admin') ? 'System Administrator' : 'Demo Owner',
-    phone: '+91 98765 43210',
+    name: payload.name || (payload.email.includes('admin') ? 'System Administrator' : 'Pet Owner'),
+    phone: payload.phone || '+91 98765 43210',
     altPhone: '+91 91234 56789',
-    address: '12, Green Meadows Apartment, Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India',
+    address: 'Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    role: payload.role,
+    role: payload.role || 'USER',
     createdAt: new Date().toISOString(),
   };
 }
