@@ -29,6 +29,7 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
   const address = pet.user?.address || '12, Green Meadows Apartment, Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India';
 
   const ageText = calculateAge(pet.dob);
+  const isMale = pet.gender === 'Male';
 
   const whatsappMessage = encodeURIComponent(
     `Hi! I found ${pet.name}. I scanned his Puppy ID QR code on his collar tag.`
@@ -60,7 +61,7 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
         <span>PUBLIC QR PAGE — Visible to anyone who scans the QR code</span>
       </div>
 
-      {/* Main Mobile-First Container (Max 440px width centered) */}
+      {/* Main Mobile-First Container */}
       <main className="max-w-md mx-auto px-4 py-6 space-y-5">
         {/* Top Header Card */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100/80 text-center relative overflow-hidden">
@@ -76,9 +77,21 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
             <Heart className="w-6 h-6 text-rose-500 fill-rose-500 inline-block" />
           </h1>
 
-          <p className="text-xs font-bold text-slate-600 mt-1">
-            {pet.breed} | {pet.gender} | {ageText}
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+            <span className="text-xs font-bold text-slate-700">{pet.breed}</span>
+            <span className="text-slate-300">•</span>
+            <span
+              className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
+                isMale
+                  ? 'bg-blue-50 text-blue-800 border-blue-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}
+            >
+              {pet.gender === 'Male' ? '♂ Male' : '♀ Female'}
+            </span>
+            <span className="text-slate-300">•</span>
+            <span className="text-xs font-bold text-slate-600">{ageText}</span>
+          </div>
 
           {/* Pet Photo */}
           {privacy.showPhoto !== false && (
@@ -231,8 +244,14 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
             )}
           </div>
 
-          <div className="bg-rose-50/80 p-3 rounded-2xl border border-rose-100 text-center text-xs font-bold text-rose-700 flex items-center justify-center gap-1.5">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500 shrink-0" />
+          <div
+            className={`p-3 rounded-2xl border text-center text-xs font-bold flex items-center justify-center gap-1.5 ${
+              isMale
+                ? 'bg-blue-50/80 border-blue-100 text-blue-800'
+                : 'bg-rose-50/80 border-rose-100 text-rose-800'
+            }`}
+          >
+            <Heart className={`w-4 h-4 shrink-0 ${isMale ? 'text-blue-500 fill-blue-500' : 'text-rose-500 fill-rose-500'}`} />
             <span>Thank you for helping me. You are awesome! 🐶</span>
           </div>
         </div>
@@ -261,12 +280,16 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
 
         {/* Important Notes Card */}
         {privacy.showNotes !== false && (
-          <div className="bg-rose-50/50 rounded-3xl p-5 border border-rose-100 space-y-2">
-            <div className="flex items-center gap-2 text-rose-800 font-extrabold text-sm">
-              <Heart className="w-4 h-4 text-rose-600 fill-rose-600" />
+          <div
+            className={`rounded-3xl p-5 border space-y-2 ${
+              isMale ? 'bg-blue-50/50 border-blue-100' : 'bg-rose-50/50 border-rose-100'
+            }`}
+          >
+            <div className={`flex items-center gap-2 font-extrabold text-sm ${isMale ? 'text-blue-900' : 'text-rose-900'}`}>
+              <Heart className={`w-4 h-4 ${isMale ? 'text-blue-600 fill-blue-600' : 'text-rose-600 fill-rose-600'}`} />
               <span>Important Notes</span>
             </div>
-            <p className="text-xs text-rose-900 font-semibold leading-relaxed">
+            <p className={`text-xs font-semibold leading-relaxed ${isMale ? 'text-blue-950' : 'text-rose-950'}`}>
               {pet.importantNotes || `${pet.name} is a friendly boy. He loves people and kids. Please call my family immediately. 🐾`}
             </p>
           </div>
@@ -308,7 +331,7 @@ export const PublicPetView: React.FC<PublicPetViewProps> = ({ pet }) => {
         </div>
       </main>
 
-      {/* Sticky Bottom Actions Bar for Mobile (Section 57) */}
+      {/* Sticky Bottom Actions Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 flex items-center justify-center max-w-md mx-auto shadow-2xl">
         <a
           href={`tel:${primaryPhone}`}
