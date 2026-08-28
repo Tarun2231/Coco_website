@@ -12,6 +12,7 @@ import {
   BarChart3,
   ShieldCheck,
   LogOut,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,10 +27,10 @@ export const AdminSidebar: React.FC = () => {
 
   const navItems = [
     { label: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard },
-    { label: 'Users', href: '/admin/users', icon: Users },
-    { label: 'Pets', href: '/admin/pets', icon: Dog },
-    { label: 'Lost Pets', href: '/admin/lost-pets', icon: AlertTriangle },
-    { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+    { label: 'Dog Registry & QR', href: '/admin/pets', icon: Dog },
+    { label: 'Puppy Profile', href: '/admin/profile', icon: User },
+    { label: 'Lost Pets & Caretakers', href: '/admin/lost-pets', icon: AlertTriangle },
+    { label: 'Users Oversight', href: '/admin/users', icon: Users },
     { label: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
   ];
 
