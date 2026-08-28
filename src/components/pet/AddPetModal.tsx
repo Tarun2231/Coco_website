@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Dog, ShieldCheck, Camera, FileText, CheckCircle2 } from 'lucide-react';
 
 interface AddPetModalProps {
   isOpen: boolean;
@@ -26,6 +27,12 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
     photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
     importantNotes: '',
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+    }
+  }, [isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,198 +60,238 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Add New Pet - Step ${step} of 4`}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {step === 1 && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Name *</label>
-              <input
-                type="text"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="e.g. Bruno"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-4">
+        {/* Step Progress Bar for Mobile */}
+        <div className="flex items-center justify-between gap-1 mb-2">
+          {[1, 2, 3, 4].map((s) => (
+            <div
+              key={s}
+              className={`h-1.5 flex-1 rounded-full transition-all ${
+                s <= step ? 'bg-brand-coral' : 'bg-slate-200'
+              }`}
+            />
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Step 1: Basic Information */}
+          {step === 1 && (
+            <div className="space-y-3 animate-fadeIn">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Species</label>
-                <select
-                  name="species"
-                  value={formData.species}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-                >
-                  <option value="Dog">Dog</option>
-                  <option value="Cat">Cat</option>
-                  <option value="Bird">Bird</option>
-                  <option value="Rabbit">Rabbit</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Breed *</label>
-              <input
-                type="text"
-                name="breed"
-                required
-                value={formData.breed}
-                onChange={handleChange}
-                placeholder="e.g. Golden Retriever"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Color</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Name *</label>
                 <input
                   type="text"
-                  name="color"
-                  value={formData.color}
+                  name="name"
+                  required
+                  value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g. Golden"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                  placeholder="e.g. Bruno"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Species</label>
+                  <select
+                    name="species"
+                    value={formData.species}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral bg-white"
+                  >
+                    <option value="Dog">Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Bird">Bird</option>
+                    <option value="Rabbit">Rabbit</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral bg-white"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Breed *</label>
+                <input
+                  type="text"
+                  name="breed"
+                  required
+                  value={formData.breed}
+                  onChange={handleChange}
+                  placeholder="e.g. Golden Retriever"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Color</label>
+                  <input
+                    type="text"
+                    name="color"
+                    value={formData.color}
+                    onChange={handleChange}
+                    placeholder="e.g. Golden"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Weight</label>
+                  <input
+                    type="text"
+                    name="weight"
+                    value={formData.weight}
+                    onChange={handleChange}
+                    placeholder="e.g. 28 kg"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    if (!formData.name || !formData.breed) {
+                      alert('Please enter Pet Name and Breed');
+                      return;
+                    }
+                    setStep(2);
+                  }}
+                  className="w-full sm:w-auto font-bold"
+                >
+                  Next: Identification &rarr;
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Identification */}
+          {step === 2 && (
+            <div className="space-y-3 animate-fadeIn">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Microchip ID</label>
+                <input
+                  type="text"
+                  name="microchipId"
+                  value={formData.microchipId}
+                  onChange={handleChange}
+                  placeholder="e.g. 988 000 123 456 789"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral font-mono"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Weight</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Registration Number</label>
                 <input
                   type="text"
-                  name="weight"
-                  value={formData.weight}
+                  name="registrationNo"
+                  value={formData.registrationNo}
                   onChange={handleChange}
-                  placeholder="e.g. 28 kg"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                  placeholder="e.g. PET-HYD-2026-001"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
                 />
               </div>
-            </div>
-            <div className="flex justify-end pt-4">
-              <Button type="button" onClick={() => setStep(2)}>
-                Next: Identification &rarr;
-              </Button>
-            </div>
-          </div>
-        )}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Municipal License Number</label>
+                <input
+                  type="text"
+                  name="licenseNo"
+                  value={formData.licenseNo}
+                  onChange={handleChange}
+                  placeholder="e.g. LIC-99210-A"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                />
+              </div>
 
-        {step === 2 && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Microchip ID</label>
-              <input
-                type="text"
-                name="microchipId"
-                value={formData.microchipId}
-                onChange={handleChange}
-                placeholder="e.g. 988 000 123 456 789"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-              />
+              <div className="flex justify-between gap-3 pt-3">
+                <Button type="button" variant="secondary" onClick={() => setStep(1)} className="flex-1 sm:flex-initial">
+                  &larr; Back
+                </Button>
+                <Button type="button" variant="primary" onClick={() => setStep(3)} className="flex-1 sm:flex-initial font-bold">
+                  Next: Photo &rarr;
+                </Button>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Registration Number</label>
-              <input
-                type="text"
-                name="registrationNo"
-                value={formData.registrationNo}
-                onChange={handleChange}
-                placeholder="e.g. PET-HYD-2026-001"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">License Number</label>
-              <input
-                type="text"
-                name="licenseNo"
-                value={formData.licenseNo}
-                onChange={handleChange}
-                placeholder="e.g. LIC-99210-A"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral"
-              />
-            </div>
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="secondary" onClick={() => setStep(1)}>
-                &larr; Back
-              </Button>
-              <Button type="button" onClick={() => setStep(3)}>
-                Next: Photo & Photo &rarr;
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {step === 3 && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Photo URL</label>
-              <input
-                type="url"
-                name="photo"
-                value={formData.photo}
-                onChange={handleChange}
-                placeholder="https://..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral text-sm"
-              />
-            </div>
-            <div className="flex justify-center p-3 bg-slate-50 rounded-2xl">
-              <img
-                src={formData.photo}
-                alt="Preview"
-                className="w-32 h-32 rounded-2xl object-cover border-2 border-brand-coral/30"
-              />
-            </div>
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="secondary" onClick={() => setStep(2)}>
-                &larr; Back
-              </Button>
-              <Button type="button" onClick={() => setStep(4)}>
-                Next: Notes & Confirm &rarr;
-              </Button>
-            </div>
-          </div>
-        )}
+          {/* Step 3: Photo Selection */}
+          {step === 3 && (
+            <div className="space-y-3 animate-fadeIn">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pet Photo URL</label>
+                <input
+                  type="url"
+                  name="photo"
+                  value={formData.photo}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                />
+              </div>
+              <div className="flex flex-col items-center p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="text-xs text-slate-500 font-medium mb-2">Photo Preview:</span>
+                <img
+                  src={formData.photo}
+                  alt="Preview"
+                  className="w-28 h-28 rounded-2xl object-cover border-2 border-brand-coral/40 shadow-sm"
+                />
+              </div>
 
-        {step === 4 && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Important Public Notes</label>
-              <textarea
-                name="importantNotes"
-                rows={3}
-                value={formData.importantNotes}
-                onChange={handleChange}
-                placeholder="e.g. Friendly boy, loves kids. Please call my family immediately."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-coral text-sm"
-              />
+              <div className="flex justify-between gap-3 pt-3">
+                <Button type="button" variant="secondary" onClick={() => setStep(2)} className="flex-1 sm:flex-initial">
+                  &larr; Back
+                </Button>
+                <Button type="button" variant="primary" onClick={() => setStep(4)} className="flex-1 sm:flex-initial font-bold">
+                  Next: Notes & Confirm &rarr;
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 bg-amber-50 p-3 rounded-xl border border-amber-200">
-              🐾 By adding your pet, Puppy ID will automatically generate a unique public QR code identity tag for your pet.
-            </p>
-            <div className="flex justify-between pt-4">
-              <Button type="button" variant="secondary" onClick={() => setStep(3)}>
-                &larr; Back
-              </Button>
-              <Button type="submit" variant="primary">
-                Create Pet & Generate QR
-              </Button>
+          )}
+
+          {/* Step 4: Notes & Confirm */}
+          {step === 4 && (
+            <div className="space-y-3 animate-fadeIn">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Important Public Notes</label>
+                <textarea
+                  name="importantNotes"
+                  rows={3}
+                  value={formData.importantNotes}
+                  onChange={handleChange}
+                  placeholder="e.g. Friendly boy, loves kids. Please call my family immediately."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-coral"
+                />
+              </div>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  By clicking <strong>Create Pet & Generate QR</strong>, Puppy ID will generate a custom public QR code tag for <strong>{formData.name || 'your pet'}</strong>.
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-3 pt-3">
+                <Button type="button" variant="secondary" onClick={() => setStep(3)} className="flex-1 sm:flex-initial">
+                  &larr; Back
+                </Button>
+                <Button type="submit" variant="primary" className="flex-1 sm:flex-initial font-bold">
+                  Create Pet & Generate QR
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </form>
+          )}
+        </form>
+      </div>
     </Modal>
   );
 };
