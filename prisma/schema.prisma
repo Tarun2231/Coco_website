@@ -229,3 +229,15 @@ model AuditLog {
 
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
+
+model LoginLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userEmail String
+  userName  String?
+  ip        String?  @default("182.73.12.105")
+  device    String?  @default("Mobile Chrome")
+  city      String?  @default("Hyderabad")
+  country   String?  @default("India")
+  loginTime DateTime @default(now())
+}

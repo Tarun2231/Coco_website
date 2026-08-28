@@ -8,14 +8,16 @@ import { RemindersWidget } from '@/components/dashboard/RemindersWidget';
 import { ExpensesWidget } from '@/components/dashboard/ExpensesWidget';
 import { LostModeBanner } from '@/components/pet/LostModeBanner';
 import { AddPetModal } from '@/components/pet/AddPetModal';
-import { Syringe, DollarSign, Bell, Eye, Heart } from 'lucide-react';
-import { Pet, Vaccination, Expense, Reminder } from '@/types';
+import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode } from 'lucide-react';
+import { Pet, Expense, Reminder } from '@/types';
+import { Button } from '@/components/ui/Button';
 
 interface DashboardClientProps {
   initialPets: Pet[];
+  userName?: string;
 }
 
-export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets }) => {
+export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, userName }) => {
   const [pets, setPets] = useState<Pet[]>(initialPets);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(initialPets[0] || null);
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
@@ -26,9 +28,8 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets })
       const data = await res.json();
       if (data.pets) {
         setPets(data.pets);
-        if (selectedPet) {
-          const updated = data.pets.find((p: Pet) => p.id === selectedPet.id);
-          if (updated) setSelectedPet(updated);
+        if (data.pets.length > 0) {
+          setSelectedPet(data.pets[0]);
         }
       }
     } catch (err) {
@@ -36,7 +37,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets })
     }
   };
 
-  const currentPet = selectedPet || pets[0];
+  const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
   const expenses = (currentPet as any)?.expenses || [];
@@ -52,8 +53,10 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets })
             Dashboard
           </h1>
           <p className="text-sm text-slate-500 font-medium mt-1">
-            Welcome back! Here&apos;s what&apos;s happening with{' '}
-            <span className="font-extrabold text-slate-800">{currentPet?.name || 'your pet'}</span>.
+            Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}! Here&apos;s what&apos;s happening with{' '}
+            <span className="font-extrabold text-slate-800">
+              {currentPet?.name || 'your registered pets'}
+            </span>.
           </p>
         </div>
 
@@ -62,6 +65,42 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets })
           selectedPet={currentPet}
           onSelectPet={(p) => setSelectedPet(p)}
           onAddPetClick={() => setIsAddPetOpen(true)}
+        />
+      </div>
+
+      {/* 4 Stat Cards Row (Clean 0 when no pets) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <StatCard
+          title="Vaccinations"
+          value={currentPet ? vaccinations.length : 0}
+          subtitle="Total Records"
+          icon={<Syringe className="w-6 h-6" />}
+          href="/dashboard/vaccinations"
+          colorScheme="green"
+        />
+        <StatCard
+          title="Expenses"
+          value={currentPet ? `₹${totalSpent.toLocaleString('en-IN')}` : '₹0'}
+          subtitle="Total Spent"
+          icon={<DollarSign className="w-6 h-6" />}
+          href="/dashboard/expenses"
+          colorScheme="blue"
+        />
+        <StatCard
+          title="Reminders"
+          value={currentPet ? reminders.filter((r: Reminder) => !r.isCompleted).length : 0}
+          subtitle="Upcoming"
+          icon={<Bell className="w-6 h-6" />}
+          href="/dashboard/reminders"
+          colorScheme="orange"
+        />
+        <StatCard
+          title="Profile Views"
+          value={currentPet ? (currentPet as any)?.qrCode?.scanCount || 0 : 0}
+          subtitle="This Month"
+          icon={<Eye className="w-6 h-6" />}
+          href="/dashboard/analytics"
+          colorScheme="purple"
         />
       </div>
 
@@ -75,58 +114,59 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets })
         />
       )}
 
-      {/* 4 Stat Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
-          title="Vaccinations"
-          value={vaccinations.length || 4}
-          subtitle="Total Records"
-          icon={<Syringe className="w-6 h-6" />}
-          href="/dashboard/vaccinations"
-          colorScheme="green"
-        />
-        <StatCard
-          title="Expenses"
-          value={`₹${totalSpent.toLocaleString('en-IN') || '12,450'}`}
-          subtitle="Total Spent"
-          icon={<DollarSign className="w-6 h-6" />}
-          href="/dashboard/expenses"
-          colorScheme="blue"
-        />
-        <StatCard
-          title="Reminders"
-          value={reminders.filter((r: Reminder) => !r.isCompleted).length || 2}
-          subtitle="Upcoming"
-          icon={<Bell className="w-6 h-6" />}
-          href="/dashboard/reminders"
-          colorScheme="orange"
-        />
-        <StatCard
-          title="Profile Views"
-          value={(currentPet as any)?.qrCode?.scanCount || 27}
-          subtitle="This Month"
-          icon={<Eye className="w-6 h-6" />}
-          href="/dashboard/analytics"
-          colorScheme="purple"
-        />
-      </div>
+      {/* Main Content: Empty State when No Pets or Active Widgets when Pet exists */}
+      {!currentPet ? (
+        <div className="bg-white rounded-3xl p-10 md:p-14 border border-slate-100 shadow-sm text-center max-w-2xl mx-auto space-y-6">
+          <div className="w-20 h-20 rounded-full bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-md">
+            <Dog className="w-10 h-10" />
+          </div>
 
-      {/* Main Content 3-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: QR Code Card */}
-        {currentPet && (
-          <QRCodeCard
-            petName={currentPet.name}
-            publicId={currentPet.publicId}
-          />
-        )}
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900">
+              Welcome{userName ? `, ${userName}` : ''}! Add Your First Pet
+            </h2>
+            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              Your pet dashboard is currently clean and empty. Click below to add your dog&apos;s details and generate a custom QR collar ID tag.
+            </p>
+          </div>
 
-        {/* Column 2: Upcoming Reminders Widget */}
-        <RemindersWidget reminders={reminders} />
+          <Button
+            onClick={() => setIsAddPetOpen(true)}
+            variant="primary"
+            size="lg"
+            className="font-bold shadow-xl shadow-brand-coral/20 px-8"
+            icon={<Plus className="w-5 h-5" />}
+          >
+            Add Your First Pet
+          </Button>
 
-        {/* Column 3: Recent Expenses Widget */}
-        <ExpensesWidget expenses={expenses} />
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-slate-100 text-xs font-semibold text-slate-500">
+            <div className="flex items-center justify-center gap-1.5">
+              <QrCode className="w-4 h-4 text-brand-coral" />
+              <span>Instant QR Collar Tag</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <Syringe className="w-4 h-4 text-emerald-600" />
+              <span>Vaccination Tracker</span>
+            </div>
+            <div className="flex items-center justify-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+              <span>Expense Monitoring</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Column 1: QR Code Card */}
+          <QRCodeCard petName={currentPet.name} publicId={currentPet.publicId} />
+
+          {/* Column 2: Upcoming Reminders Widget */}
+          <RemindersWidget reminders={reminders} />
+
+          {/* Column 3: Recent Expenses Widget */}
+          <ExpensesWidget expenses={expenses} />
+        </div>
+      )}
 
       {/* Bottom Safety Tip Banner */}
       <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl p-4 flex items-center gap-3 text-xs font-semibold text-emerald-900">

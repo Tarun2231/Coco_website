@@ -77,6 +77,8 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
+  const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
+
   let pets: any[] = [];
   try {
     pets = await db.pet.findMany({
@@ -92,23 +94,13 @@ export default async function DashboardPage() {
       orderBy: { createdAt: 'asc' },
     });
   } catch (err) {
-    console.error('Dashboard DB fetch error, using fallback:', err);
+    console.error('Dashboard DB fetch error:', err);
   }
 
-  if (!pets || pets.length === 0) {
-    const customUserPet = {
-      ...fallbackBrunoPet,
-      id: `pet-${user.id}`,
-      user: {
-        name: user.name,
-        phone: user.phone || '+91 98765 43210',
-        altPhone: user.altPhone || '+91 91234 56789',
-        email: user.email,
-        address: user.address || 'Road No. 5, Banjara Hills, Hyderabad, Telangana 500034, India',
-      },
-    };
-    pets = [customUserPet as any];
+  // Only load demo pets for explicit demo account owner@puppyid.com!
+  if ((!pets || pets.length === 0) && isDemoAccount) {
+    pets = [fallbackBrunoPet as any];
   }
 
-  return <DashboardClient initialPets={pets as any} />;
+  return <DashboardClient initialPets={pets as any} userName={user.name} />;
 }
