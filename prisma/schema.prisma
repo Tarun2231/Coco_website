@@ -183,17 +183,25 @@ model QRScan {
 }
 
 model FinderMessage {
-  id             String   @id @default(uuid())
-  petId          String
-  senderName     String
-  senderPhone    String?
-  message        String
-  finderLocation String?
-  finderPhotoUrl String?
-  isRead         Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  id               String   @id @default(uuid())
+  petId            String
+  senderName       String
+  senderPhone      String?
+  message          String
+  finderLocation   String?
+  finderPhotoUrl   String?
+  
+  // Handover / Caretaker Fields
+  hasHandedOver    Boolean  @default(false)
+  handoverName     String?
+  handoverPhone    String?
+  handoverLocation String?
+  handoverNotes    String?
 
-  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  isRead           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  pet              Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 }
 
 model Notification {

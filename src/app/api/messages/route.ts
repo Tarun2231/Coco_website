@@ -28,7 +28,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { petId, senderName, senderPhone, message, finderLocation, finderPhotoUrl } = await req.json();
+    const {
+      petId,
+      senderName,
+      senderPhone,
+      message,
+      finderLocation,
+      finderPhotoUrl,
+      hasHandedOver,
+      handoverName,
+      handoverPhone,
+      handoverLocation,
+      handoverNotes,
+    } = await req.json();
 
     if (!petId || !message) {
       return NextResponse.json({ error: 'petId and message are required' }, { status: 400 });
@@ -42,6 +54,11 @@ export async function POST(req: Request) {
         message,
         finderLocation,
         finderPhotoUrl,
+        hasHandedOver: Boolean(hasHandedOver),
+        handoverName,
+        handoverPhone,
+        handoverLocation,
+        handoverNotes,
       },
     });
 
@@ -55,8 +72,12 @@ export async function POST(req: Request) {
         data: {
           userId: pet.userId,
           petId,
-          title: `New Finder Message for ${pet.name}!`,
-          message: `${senderName || 'Someone'} scanned ${pet.name}'s QR tag and sent a message: "${message.substring(0, 50)}..."`,
+          title: hasHandedOver
+            ? `🚨 HANDOVER ALERT for ${pet.name}!`
+            : `New Location Pin for ${pet.name}!`,
+          message: hasHandedOver
+            ? `Finder handed over ${pet.name} to ${handoverName} (${handoverPhone}) at ${handoverLocation || finderLocation}.`
+            : `${senderName || 'Someone'} spotted ${pet.name} at ${finderLocation || 'a location'}.`,
           type: 'MESSAGE',
         },
       });
@@ -65,6 +86,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: newMessage });
   } catch (err) {
     console.error('Finder message POST error:', err);
-    return NextResponse.json({ error: 'Failed to send finder message' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send location message' }, { status: 500 });
   }
 }

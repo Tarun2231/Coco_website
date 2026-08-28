@@ -135,6 +135,11 @@ export interface FinderMessage {
   message: string;
   finderLocation?: string | null;
   finderPhotoUrl?: string | null;
+  hasHandedOver?: boolean;
+  handoverName?: string | null;
+  handoverPhone?: string | null;
+  handoverLocation?: string | null;
+  handoverNotes?: string | null;
   isRead: boolean;
   createdAt: string | Date;
   pet?: {
