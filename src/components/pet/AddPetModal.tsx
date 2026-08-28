@@ -3,17 +3,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { CheckCircle2, Dog, Tag, Camera, FileText, Upload, Image as ImageIcon } from 'lucide-react';
+import { CheckCircle2, Dog, Tag, Camera, FileText, Upload } from 'lucide-react';
 import { INDIAN_DOG_BREEDS } from '@/lib/breeds';
 
 interface AddPetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (pet?: any) => void;
 }
 
 export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     species: 'Dog',
@@ -35,6 +36,7 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
   useEffect(() => {
     if (isOpen) {
       setStep(1);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
 
@@ -57,21 +59,26 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     try {
       const res = await fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      if (res.ok) {
-        onSuccess();
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok || data.success || data.pet) {
+        onSuccess(data.pet);
         onClose();
       } else {
-        alert('Failed to add pet. Please check inputs.');
+        alert(data.error || 'Failed to add pet. Please check inputs.');
       }
     } catch (err) {
       console.error(err);
       alert('An error occurred while adding pet.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -335,7 +342,7 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
                 <img
                   src={formData.photo}
                   alt="Preview"
-                  className={`w-24 h-24 rounded-2xl object-cover border-4 shadow-sm ${
+                  className={`w-20 h-20 rounded-2xl object-cover border-4 shadow-sm ${
                     isMale ? 'border-blue-300' : 'border-rose-300'
                   }`}
                 />
@@ -366,7 +373,7 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-brand-coral"
                 />
               </div>
-              <div className={`p-3 rounded-xl border text-[11px] flex items-start gap-2 ${themeBgClass}`}>
+              <div className={`p-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${themeBgClass}`}>
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
                   By clicking <strong>Create Pet & Generate QR</strong>, Puppy ID will generate a custom public QR code tag for <strong>{formData.name || 'your pet'}</strong> with {formData.gender === 'Male' ? 'Light Blue ♂' : 'Light Pink ♀'} theme accents.
@@ -377,8 +384,8 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
                 <Button type="button" variant="secondary" onClick={() => setStep(3)} className="text-xs py-2">
                   &larr; Back
                 </Button>
-                <Button type="submit" variant="primary" className="text-xs font-bold py-2">
-                  Create Pet & Generate QR
+                <Button type="submit" variant="primary" disabled={isSubmitting} className="text-xs font-bold py-2">
+                  {isSubmitting ? 'Generating QR Code...' : 'Create Pet & Generate QR'}
                 </Button>
               </div>
             </div>
