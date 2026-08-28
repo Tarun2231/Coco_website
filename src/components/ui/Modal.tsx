@@ -37,16 +37,16 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div
-        className={`bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full ${maxWidths[maxWidth]} overflow-hidden transform transition-all border border-slate-100 max-h-[88vh] sm:max-h-[90vh] flex flex-col my-0 sm:my-auto`}
+        className={`bg-white rounded-3xl shadow-2xl w-full ${maxWidths[maxWidth]} overflow-hidden transform transition-all border border-slate-100 max-h-[85vh] sm:max-h-[90vh] flex flex-col my-auto`}
       >
         {title && (
-          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-            <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">{title}</h3>
+          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">
+            <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">{title}</h3>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />

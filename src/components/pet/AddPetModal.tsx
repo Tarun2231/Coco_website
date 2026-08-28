@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { Dog, ShieldCheck, Camera, FileText, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Dog, Tag, Camera, FileText } from 'lucide-react';
 
 interface AddPetModalProps {
   isOpen: boolean;
@@ -58,19 +58,37 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
     }
   };
 
+  const steps = [
+    { num: 1, label: 'Info', icon: Dog },
+    { num: 2, label: 'ID Tags', icon: Tag },
+    { num: 3, label: 'Photo', icon: Camera },
+    { num: 4, label: 'Confirm', icon: FileText },
+  ];
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Add New Pet - Step ${step} of 4`}>
       <div className="space-y-4">
-        {/* Step Progress Bar for Mobile */}
-        <div className="flex items-center justify-between gap-1 mb-2">
-          {[1, 2, 3, 4].map((s) => (
-            <div
-              key={s}
-              className={`h-1.5 flex-1 rounded-full transition-all ${
-                s <= step ? 'bg-brand-coral' : 'bg-slate-200'
-              }`}
-            />
-          ))}
+        {/* Step Clickable Tabs for Mobile */}
+        <div className="grid grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl">
+          {steps.map((s) => {
+            const Icon = s.icon;
+            const isActive = step === s.num;
+            return (
+              <button
+                key={s.num}
+                type="button"
+                onClick={() => setStep(s.num)}
+                className={`py-1.5 px-1 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1 transition-all ${
+                  isActive
+                    ? 'bg-brand-coral text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{s.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -171,7 +189,7 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
                   }}
                   className="w-full sm:w-auto font-bold"
                 >
-                  Next: Identification &rarr;
+                  Next: ID Tags &rarr;
                 </Button>
               </div>
             </div>
@@ -244,7 +262,7 @@ export const AddPetModal: React.FC<AddPetModalProps> = ({ isOpen, onClose, onSuc
                 <img
                   src={formData.photo}
                   alt="Preview"
-                  className="w-28 h-28 rounded-2xl object-cover border-2 border-brand-coral/40 shadow-sm"
+                  className="w-24 h-24 rounded-2xl object-cover border-2 border-brand-coral/40 shadow-sm"
                 />
               </div>
 
