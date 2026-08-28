@@ -37,9 +37,9 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/75 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div
-        className={`bg-white rounded-3xl shadow-2xl w-full ${maxWidths[maxWidth]} overflow-hidden transform transition-all border border-slate-100 max-h-[85vh] sm:max-h-[90vh] flex flex-col my-auto`}
+        className={`bg-white rounded-3xl shadow-2xl w-full ${maxWidths[maxWidth]} overflow-hidden transform transition-all border border-slate-100 max-h-[82vh] sm:max-h-[88vh] flex flex-col my-auto`}
       >
         {title && (
           <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white z-10">
