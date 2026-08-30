@@ -17,23 +17,13 @@ export async function POST(req: Request) {
     const cleanEmail = String(email).toLowerCase().trim();
     const cleanPassword = String(password).trim();
 
-    // Track Login Security Log
-    try {
-      await db.loginLog.create({
-        data: {
-          userEmail: cleanEmail,
-          userName: cleanEmail.includes('admin') ? 'System Administrator' : 'Pet Owner',
-          ip: '182.73.12.105',
-          device: 'Chrome / Windows Mobile',
-          city: 'Hyderabad',
-          country: 'India',
-        },
-      });
-    } catch (logErr) {
-      // Ignore log error
-    }
+    // Extract real client IP and User-Agent from proxy request headers
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    const realIp = req.headers.get('x-real-ip');
+    const clientIp = forwardedFor ? forwardedFor.split(',')[0].trim() : (realIp || '127.0.0.1');
+    const userAgent = req.headers.get('user-agent') || 'Unknown Device / Web Browser';
 
-    // 1. Instant Demo Accounts (Explicit Demo Buttons)
+    // 1. Check Demo Accounts (Explicit Demo buttons)
     if (cleanEmail === 'owner@puppyid.com' && (cleanPassword === 'password123' || cleanPassword === 'owner123')) {
       const token = signToken({
         userId: 'demo-owner-id',
@@ -42,6 +32,20 @@ export async function POST(req: Request) {
         name: 'Demo Owner',
         phone: '+91 98765 43210',
       });
+
+      try {
+        await db.loginLog.create({
+          data: {
+            userId: 'demo-owner-id',
+            userEmail: cleanEmail,
+            userName: 'Demo Owner',
+            ip: clientIp,
+            device: userAgent.slice(0, 50),
+            city: 'Hyderabad',
+            country: 'India',
+          },
+        });
+      } catch (logErr) {}
 
       const response = NextResponse.json({
         success: true,
@@ -90,40 +94,74 @@ export async function POST(req: Request) {
       return response;
     }
 
-    // 2. Custom User Login
-    let authenticatedUser = null;
+    // 2. Strict Custom User Authentication from Database
+    let dbUser = null;
     try {
-      const user = await db.user.findUnique({
+      dbUser = await db.user.findUnique({
         where: { email: cleanEmail },
       });
-
-      if (user) {
-        const isMatch = await bcrypt.compare(cleanPassword, user.password);
-        if (isMatch) {
-          authenticatedUser = user;
-        }
-      }
     } catch (dbErr) {
       console.error('DB Login lookup error:', dbErr);
     }
 
-    // If custom user matched in DB or logging in with non-demo credentials
+    // 🚨 STRICT SECURITY CHECK: Reject unregistered accounts completely
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: 'Account not found. Please register first to access Puppy ID.' },
+        { status: 401 }
+      );
+    }
+
+    // 🚨 Password Verification
+    const isPasswordMatch = await bcrypt.compare(cleanPassword, dbUser.password);
+    if (!isPasswordMatch) {
+      return NextResponse.json(
+        { error: 'Invalid password. Please check your credentials and try again.' },
+        { status: 401 }
+      );
+    }
+
+    // Record Login History & Security Audit Log
+    try {
+      await db.loginLog.create({
+        data: {
+          userId: dbUser.id,
+          userEmail: dbUser.email,
+          userName: dbUser.name,
+          ip: clientIp,
+          device: userAgent.slice(0, 50),
+          city: 'Hyderabad',
+          country: 'India',
+        },
+      });
+
+      await db.auditLog.create({
+        data: {
+          userId: dbUser.id,
+          action: 'LOGIN_SUCCESS',
+          entity: 'USER',
+          entityId: dbUser.id,
+          details: `Successful login from IP ${clientIp}`,
+        },
+      });
+    } catch (logErr) {}
+
     const token = signToken({
-      userId: authenticatedUser?.id || `user-${cleanEmail.replace(/[^a-z0-9]/g, '')}`,
-      email: cleanEmail,
-      role: authenticatedUser?.role || 'USER',
-      name: authenticatedUser?.name || 'Pet Owner',
-      phone: authenticatedUser?.phone || '+91 98765 43210',
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role || 'USER',
+      name: dbUser.name,
+      phone: dbUser.phone || '+91 98765 43210',
     });
 
     const response = NextResponse.json({
       success: true,
       token,
       user: {
-        id: authenticatedUser?.id || `user-${cleanEmail.replace(/[^a-z0-9]/g, '')}`,
-        email: cleanEmail,
-        name: authenticatedUser?.name || 'Pet Owner',
-        role: authenticatedUser?.role || 'USER',
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        role: dbUser.role || 'USER',
       },
     });
 

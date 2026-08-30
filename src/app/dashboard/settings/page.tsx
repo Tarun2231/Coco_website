@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { PrivacyToggles } from '@/components/pet/PrivacyToggles';
 import { Button } from '@/components/ui/Button';
-import { User, Shield, KeyRound, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Shield, KeyRound, Save, CheckCircle2, AlertCircle, History, Smartphone, Globe } from 'lucide-react';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'account' | 'privacy' | 'security'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'privacy' | 'security' | 'history'>('account');
 
   // Account State
   const [name, setName] = useState('');
@@ -23,6 +23,10 @@ export default function SettingsPage() {
   // Privacy State
   const [petId, setPetId] = useState<string | null>(null);
   const [privacySettings, setPrivacySettings] = useState<Record<string, boolean>>({});
+
+  // Security Logs State
+  const [loginLogs, setLoginLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
 
   // Status feedback states
   const [loading, setLoading] = useState(true);
@@ -52,6 +56,12 @@ export default function SettingsPage() {
           setPetId(firstPet.id);
           setPrivacySettings(firstPet.privacySetting || {});
         }
+
+        // Fetch security logs
+        const logsRes = await fetch('/api/auth/security-logs');
+        const logsData = await logsRes.json();
+        if (logsData.loginLogs) setLoginLogs(logsData.loginLogs);
+        if (logsData.auditLogs) setAuditLogs(logsData.auditLogs);
       } catch (err) {
         console.error(err);
       } finally {
@@ -152,15 +162,15 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-5xl animate-fadeIn">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Account & Privacy Settings</h1>
-        <p className="text-sm text-slate-500 font-medium">Manage your personal profile, contact information, password, and pet QR privacy</p>
+        <h1 className="text-2xl font-extrabold text-slate-900">Account &amp; Security Settings</h1>
+        <p className="text-sm text-slate-500 font-medium">Manage your personal profile, password, pet privacy, and security login history</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200/80 gap-2">
+      <div className="flex border-b border-slate-200/80 gap-2 overflow-x-auto">
         <button
           onClick={() => { setActiveTab('account'); setErrorMsg(''); setSuccessMsg(''); }}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'account'
               ? 'border-brand-coral text-brand-coral'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -172,7 +182,7 @@ export default function SettingsPage() {
 
         <button
           onClick={() => { setActiveTab('privacy'); setErrorMsg(''); setSuccessMsg(''); }}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'privacy'
               ? 'border-brand-coral text-brand-coral'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -184,14 +194,26 @@ export default function SettingsPage() {
 
         <button
           onClick={() => { setActiveTab('security'); setErrorMsg(''); setSuccessMsg(''); }}
-          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'security'
               ? 'border-brand-coral text-brand-coral'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           <KeyRound className="w-4 h-4" />
-          <span>Security & Password</span>
+          <span>Security &amp; Password</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('history'); setErrorMsg(''); setSuccessMsg(''); }}
+          className={`flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'history'
+              ? 'border-brand-coral text-brand-coral'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>Login History &amp; Activity</span>
         </button>
       </div>
 
@@ -358,6 +380,69 @@ export default function SettingsPage() {
               </Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* TAB 4: Login History & Security Audit Logs */}
+      {activeTab === 'history' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-brand-coral" />
+              <h3 className="text-base font-extrabold text-slate-800">Recent Login History</h3>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Real-time record of devices, IP addresses, and timestamps used to log into your account.</p>
+
+            {loginLogs.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-400 font-medium">No recent login events recorded.</div>
+            ) : (
+              <div className="divide-y divide-slate-100 text-xs">
+                {loginLogs.map((log: any) => (
+                  <div key={log.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-slate-800 flex items-center gap-2">
+                        <span>{log.device || 'Web Browser / Mobile'}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">Success</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex items-center gap-3">
+                        <span className="flex items-center gap-1"><Globe className="w-3 h-3 text-slate-400" /> IP: {log.ip || '127.0.0.1'}</span>
+                        <span>Location: {log.city || 'Hyderabad'}, {log.country || 'India'}</span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-semibold text-slate-400">
+                      {new Date(log.loginTime).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-base font-extrabold text-slate-800">Security Audit Activity</h3>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Security activity stream for account operations, password changes, and logins.</p>
+
+            {auditLogs.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-400 font-medium">No security activity logged yet.</div>
+            ) : (
+              <div className="divide-y divide-slate-100 text-xs">
+                {auditLogs.map((log: any) => (
+                  <div key={log.id} className="py-3 flex items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-slate-800">{log.action}</div>
+                      <div className="text-[11px] text-slate-500">{log.details}</div>
+                    </div>
+                    <div className="text-[11px] font-semibold text-slate-400">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
