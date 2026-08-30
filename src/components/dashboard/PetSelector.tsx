@@ -58,8 +58,10 @@ export const PetSelector: React.FC<PetSelectorProps> = ({
               <button
                 key={pet.id}
                 onClick={() => {
+                  document.cookie = `puppy_active_pet_id=${pet.id}; Path=/; Max-Age=31536000; SameSite=Lax`;
                   onSelectPet(pet);
                   setIsOpen(false);
+                  window.location.reload();
                 }}
                 className={`w-full px-4 py-2.5 text-left text-xs font-bold flex items-center justify-between transition-colors ${
                   selectedPet?.id === pet.id

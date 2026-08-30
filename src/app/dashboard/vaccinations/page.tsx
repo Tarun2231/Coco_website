@@ -1,6 +1,6 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { getActivePetForUser } from '@/lib/getPet';
 import { redirect } from 'next/navigation';
 import { VaccinationsClient } from './VaccinationsClient';
 
@@ -11,19 +11,14 @@ export default async function VaccinationsPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  let pet: any = null;
-  try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: { vaccinations: { orderBy: { dateAdministered: 'desc' } } },
-    });
-  } catch (err) {
-    console.error('Vaccinations DB query error:', err);
-  }
+  const pet: any = await getActivePetForUser(user.id, {
+    vaccinations: { orderBy: { dateAdministered: 'desc' } },
+  });
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
-  if (!pet && isDemoAccount) {
-    pet = {
+  let activePet = pet;
+  if (!activePet && isDemoAccount) {
+    activePet = {
       id: 'bruno-demo-id',
       name: 'Bruno',
       vaccinations: [
@@ -37,9 +32,9 @@ export default async function VaccinationsPage() {
 
   return (
     <VaccinationsClient
-      initialVaccinations={(pet?.vaccinations as any) || []}
-      petId={pet?.id || 'demo-id'}
-      petName={pet?.name || 'Your Pet'}
+      initialVaccinations={(activePet?.vaccinations as any) || []}
+      petId={activePet?.id || 'demo-id'}
+      petName={activePet?.name || 'Your Pet'}
     />
   );
 }

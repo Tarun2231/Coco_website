@@ -155,7 +155,14 @@ export async function POST(req: Request) {
       };
     }
 
-    return NextResponse.json({ success: true, pet: newPet });
+    const response = NextResponse.json({ success: true, pet: newPet });
+    if (newPet && newPet.id) {
+      response.headers.set(
+        'Set-Cookie',
+        `puppy_active_pet_id=${newPet.id}; Path=/; Max-Age=31536000; SameSite=Lax`
+      );
+    }
+    return response;
   } catch (err) {
     console.error('Add pet error:', err);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });

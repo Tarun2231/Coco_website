@@ -1,6 +1,6 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { getActivePetForUser } from '@/lib/getPet';
 import { redirect } from 'next/navigation';
 import { ProfileClient } from './ProfileClient';
 
@@ -31,15 +31,10 @@ export default async function PetProfilePage() {
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
-  let pet: any = null;
-  try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: { privacySetting: true, qrCode: true },
-    });
-  } catch (err) {
-    console.error('Pet profile fetch error:', err);
-  }
+  let pet: any = await getActivePetForUser(user.id, {
+    privacySetting: true,
+    qrCode: true,
+  });
 
   if (!pet && isDemoAccount) {
     pet = fallbackBrunoPet;

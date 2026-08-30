@@ -1,6 +1,6 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { getActivePetForUser } from '@/lib/getPet';
 import { redirect } from 'next/navigation';
 import { AnalyticsClient } from './AnalyticsClient';
 
@@ -11,25 +11,18 @@ export default async function AnalyticsPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  let pet: any = null;
-  try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: {
-        expenses: { orderBy: { date: 'desc' } },
-        vaccinations: { orderBy: { dateAdministered: 'desc' } },
-        reminders: { orderBy: { date: 'asc' } },
-        qrCode: true,
-        qrScans: { orderBy: { scannedAt: 'desc' }, take: 15 },
-      },
-    });
-  } catch (err) {
-    console.error('Analytics DB query error:', err);
-  }
+  const pet: any = await getActivePetForUser(user.id, {
+    expenses: { orderBy: { date: 'desc' } },
+    vaccinations: { orderBy: { dateAdministered: 'desc' } },
+    reminders: { orderBy: { date: 'asc' } },
+    qrCode: true,
+    qrScans: { orderBy: { scannedAt: 'desc' }, take: 15 },
+  });
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
-  if (!pet && isDemoAccount) {
-    pet = {
+  let activePet = pet;
+  if (!activePet && isDemoAccount) {
+    activePet = {
       id: 'bruno-demo-id',
       name: 'Bruno',
       expenses: [
@@ -56,8 +49,8 @@ export default async function AnalyticsPage() {
     };
   }
 
-  if (!pet) {
-    pet = {
+  if (!activePet) {
+    activePet = {
       id: 'empty-id',
       name: 'Your Pet',
       expenses: [],
@@ -68,5 +61,5 @@ export default async function AnalyticsPage() {
     };
   }
 
-  return <AnalyticsClient pet={pet as any} />;
+  return <AnalyticsClient pet={activePet as any} />;
 }

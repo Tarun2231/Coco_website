@@ -1,10 +1,10 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { getActivePetForUser } from '@/lib/getPet';
 import { redirect } from 'next/navigation';
 import { QRCodeCard } from '@/components/dashboard/QRCodeCard';
 import { PrintableTagCard } from '@/components/pet/PrintableTagCard';
-import { QrCode, Plus, Dog } from 'lucide-react';
+import { QrCode, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
@@ -26,15 +26,9 @@ export default async function QRCodeStudioPage() {
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
-  let pet: any = null;
-  try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: { qrCode: true },
-    });
-  } catch (err) {
-    console.error('QR code fetch error:', err);
-  }
+  let pet: any = await getActivePetForUser(user.id, {
+    qrCode: true,
+  });
 
   if (!pet && isDemoAccount) {
     pet = fallbackBrunoPet;

@@ -19,7 +19,20 @@ interface DashboardClientProps {
 
 export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, userName }) => {
   const [pets, setPets] = useState<Pet[]>(initialPets);
-  const [selectedPet, setSelectedPet] = useState<Pet | null>(initialPets[0] || null);
+
+  const getActivePetFromList = (petList: Pet[]) => {
+    if (!petList || petList.length === 0) return null;
+    if (typeof document !== 'undefined') {
+      const match = document.cookie.match(/puppy_active_pet_id=([^;]+)/);
+      if (match && match[1]) {
+        const found = petList.find((p) => p.id === match[1]);
+        if (found) return found;
+      }
+    }
+    return petList[petList.length - 1] || petList[0];
+  };
+
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(() => getActivePetFromList(initialPets));
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
 
   const fetchPets = async () => {
@@ -29,7 +42,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       if (data.pets) {
         setPets(data.pets);
         if (data.pets.length > 0) {
-          setSelectedPet(data.pets[0]);
+          setSelectedPet(getActivePetFromList(data.pets));
         }
       }
     } catch (err) {
@@ -37,7 +50,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     }
   };
 
-  const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
+  const currentPet = selectedPet || (pets.length > 0 ? pets[pets.length - 1] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
   const expenses = (currentPet as any)?.expenses || [];

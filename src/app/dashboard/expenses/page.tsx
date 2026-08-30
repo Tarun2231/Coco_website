@@ -1,6 +1,6 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { getActivePetForUser } from '@/lib/getPet';
 import { redirect } from 'next/navigation';
 import { ExpensesClient } from './ExpensesClient';
 
@@ -11,20 +11,14 @@ export default async function ExpensesPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  let pet: any = null;
-  try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: { expenses: { orderBy: { date: 'desc' } } },
-    });
-  } catch (err) {
-    console.error('Expenses DB query error:', err);
-  }
+  const pet: any = await getActivePetForUser(user.id, {
+    expenses: { orderBy: { date: 'desc' } },
+  });
 
-  // Fallback demo pet if DB is empty or demo account
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
-  if (!pet && isDemoAccount) {
-    pet = {
+  let activePet = pet;
+  if (!activePet && isDemoAccount) {
+    activePet = {
       id: 'bruno-demo-id',
       name: 'Bruno',
       expenses: [
@@ -40,9 +34,9 @@ export default async function ExpensesPage() {
 
   return (
     <ExpensesClient
-      initialExpenses={(pet?.expenses as any) || []}
-      petId={pet?.id || 'demo-id'}
-      petName={pet?.name || 'Your Pet'}
+      initialExpenses={(activePet?.expenses as any) || []}
+      petId={activePet?.id || 'demo-id'}
+      petName={activePet?.name || 'Your Pet'}
     />
   );
 }
