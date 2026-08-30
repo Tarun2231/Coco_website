@@ -147,3 +147,16 @@ export interface FinderMessage {
     photo?: string | null;
   } | null;
 }
+
+export interface QRScan {
+  id: string;
+  petId: string;
+  scannedAt: string | Date;
+  ip?: string | null;
+  userAgent?: string | null;
+  device?: string | null;
+  browser?: string | null;
+  city?: string | null;
+  country?: string | null;
+}
+

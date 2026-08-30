@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { ExpensesClient } from './ExpensesClient';
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ExpensesPage() {
@@ -15,7 +16,13 @@ export default async function ExpensesPage() {
     include: { expenses: { orderBy: { date: 'desc' } } },
   });
 
-  if (!pet) return <div>No pets found.</div>;
+  if (!pet) return <div className="p-8 text-center text-slate-500">No pets found. Please add a pet from dashboard first.</div>;
 
-  return <ExpensesClient expenses={(pet.expenses as any) || []} petName={pet.name} />;
+  return (
+    <ExpensesClient
+      initialExpenses={(pet.expenses as any) || []}
+      petId={pet.id}
+      petName={pet.name}
+    />
+  );
 }
