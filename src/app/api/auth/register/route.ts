@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { name, email, password, phone } = body;
+    const { name, email, password, phone, petName, breed, species } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json({ error: 'Name, email, and password are required' }, { status: 400 });
@@ -17,40 +17,67 @@ export async function POST(req: Request) {
     const cleanEmail = String(email).toLowerCase().trim();
     const cleanName = String(name).trim();
     const cleanPhone = phone ? String(phone).trim() : '+91 98765 43210';
+    const cleanPetName = petName ? String(petName).trim() : 'My Puppy';
+    const cleanBreed = breed ? String(breed).trim() : 'Golden Retriever';
+    const cleanSpecies = species ? String(species).trim() : 'Dog';
 
-    let userId = `user-${Math.random().toString(36).substring(2, 8)}`;
-    let userRole = 'USER';
+    const existingUser = await db.user.findUnique({
+      where: { email: cleanEmail },
+    });
 
-    try {
-      const existingUser = await db.user.findUnique({
-        where: { email: cleanEmail },
-      });
-
-      if (existingUser) {
-        return NextResponse.json({ error: 'Account with this email already exists' }, { status: 400 });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const user = await db.user.create({
-        data: {
-          name: cleanName,
-          email: cleanEmail,
-          password: hashedPassword,
-          phone: cleanPhone,
-          role: 'USER',
-        },
-      });
-      userId = user.id;
-    } catch (dbErr) {
-      console.error('DB Registration error, proceeding with session token:', dbErr);
+    if (existingUser) {
+      return NextResponse.json({ error: 'Account with this email already exists' }, { status: 400 });
     }
 
-    // Sign token preserving cleanName and cleanPhone
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 1. Create User
+    const user = await db.user.create({
+      data: {
+        name: cleanName,
+        email: cleanEmail,
+        password: hashedPassword,
+        phone: cleanPhone,
+        role: 'USER',
+      },
+    });
+
+    // 2. Automatically Create Primary Pet Profile for New User
+    const publicId = `${cleanPetName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
+    const pet = await db.pet.create({
+      data: {
+        publicId,
+        userId: user.id,
+        name: cleanPetName,
+        species: cleanSpecies,
+        breed: cleanBreed,
+        gender: 'Male',
+        photo: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&h=600&fit=crop',
+        isLost: false,
+        importantNotes: `${cleanPetName} is friendly and loves people!`,
+      },
+    });
+
+    // 3. Create Privacy Setting for Pet
+    await db.privacySetting.create({
+      data: { petId: pet.id },
+    });
+
+    // 4. Create QR Code Record for Pet
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    await db.qRCode.create({
+      data: {
+        petId: pet.id,
+        qrCodeUrl: `${appUrl}/pet/${publicId}`,
+        scanCount: 0,
+      },
+    });
+
+    // 5. Sign JWT Token
     const token = signToken({
-      userId,
+      userId: user.id,
       email: cleanEmail,
-      role: userRole,
+      role: 'USER',
       name: cleanName,
       phone: cleanPhone,
     });
@@ -59,12 +86,13 @@ export async function POST(req: Request) {
       success: true,
       token,
       user: {
-        id: userId,
+        id: user.id,
         email: cleanEmail,
         name: cleanName,
         phone: cleanPhone,
-        role: userRole,
+        role: 'USER',
       },
+      pet,
     });
 
     response.headers.set(
