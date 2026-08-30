@@ -31,7 +31,7 @@ export default async function PetProfilePage() {
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
-  let pet: any = await getActivePetForUser(user.id, {
+  let pet: any = await getActivePetForUser(user.id, user.email, {
     privacySetting: true,
     qrCode: true,
   });

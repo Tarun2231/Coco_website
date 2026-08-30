@@ -26,7 +26,7 @@ export default async function QRCodeStudioPage() {
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
-  let pet: any = await getActivePetForUser(user.id, {
+  let pet: any = await getActivePetForUser(user.id, user.email, {
     qrCode: true,
   });
 
@@ -46,7 +46,7 @@ export default async function QRCodeStudioPage() {
         </p>
         <Link href="/dashboard" className="block pt-2">
           <Button variant="primary" className="font-bold shadow-md shadow-brand-coral/20 px-6" icon={<Plus className="w-4 h-4" />}>
-            Go to Dashboard & Add Pet
+            Go to Dashboard &amp; Add Pet
           </Button>
         </Link>
       </div>
@@ -56,7 +56,7 @@ export default async function QRCodeStudioPage() {
   return (
     <div className="space-y-6 max-w-5xl animate-fadeIn">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">QR Code & Printable Tag Studio</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">QR Code &amp; Printable Tag Studio</h1>
         <p className="text-sm text-slate-500 font-medium">Download digital QR codes or generate print-ready collar ID tags for {pet.name}</p>
       </div>
 

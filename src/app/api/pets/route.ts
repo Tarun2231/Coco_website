@@ -12,8 +12,13 @@ export async function GET() {
 
   let pets: any[] = [];
   try {
+    const userCondition: any[] = [{ userId: user.id }];
+    if (user.email) {
+      userCondition.push({ user: { email: user.email.toLowerCase().trim() } });
+    }
+
     pets = await db.pet.findMany({
-      where: { userId: user.id },
+      where: { OR: userCondition },
       include: {
         privacySetting: true,
         vaccinations: true,
@@ -22,7 +27,7 @@ export async function GET() {
         documents: true,
         qrCode: true,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { updatedAt: 'desc' },
     });
   } catch (err) {
     console.error('GET /api/pets DB error:', err);
@@ -50,17 +55,21 @@ export async function POST(req: Request) {
     let newPet = null;
 
     try {
-      // 1. Ensure User exists in DB to satisfy Foreign Key relation
-      let dbUser = await db.user.findUnique({ where: { id: user.id } });
-      if (!dbUser && user.email) {
-        dbUser = await db.user.findUnique({ where: { email: user.email } });
-      }
+      // 1. Ensure User exists in DB using id OR email
+      let dbUser = await db.user.findFirst({
+        where: {
+          OR: [
+            { id: user.id },
+            { email: user.email.toLowerCase().trim() },
+          ],
+        },
+      });
 
       if (!dbUser) {
         dbUser = await db.user.create({
           data: {
             id: user.id,
-            email: user.email,
+            email: user.email.toLowerCase().trim(),
             name: user.name,
             password: 'demo-password-hash',
             phone: user.phone || '+91 98765 43210',
@@ -116,6 +125,9 @@ export async function POST(req: Request) {
         include: {
           privacySetting: true,
           qrCode: true,
+          vaccinations: true,
+          expenses: true,
+          reminders: true,
         },
       });
     } catch (dbErr) {

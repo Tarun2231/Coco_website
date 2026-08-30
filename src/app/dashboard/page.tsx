@@ -81,8 +81,13 @@ export default async function DashboardPage() {
 
   let pets: any[] = [];
   try {
+    const userCondition: any[] = [{ userId: user.id }];
+    if (user.email) {
+      userCondition.push({ user: { email: user.email.toLowerCase().trim() } });
+    }
+
     pets = await db.pet.findMany({
-      where: { userId: user.id },
+      where: { OR: userCondition },
       include: {
         privacySetting: true,
         vaccinations: true,
@@ -91,7 +96,7 @@ export default async function DashboardPage() {
         documents: true,
         qrCode: true,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { updatedAt: 'desc' },
     });
   } catch (err) {
     console.error('Dashboard DB fetch error:', err);

@@ -9,7 +9,7 @@ import { ExpensesWidget } from '@/components/dashboard/ExpensesWidget';
 import { LostModeBanner } from '@/components/pet/LostModeBanner';
 import { AddPetModal } from '@/components/pet/AddPetModal';
 import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode } from 'lucide-react';
-import { Pet, Expense, Reminder } from '@/types';
+import { Pet, Expense } from '@/types';
 import { Button } from '@/components/ui/Button';
 
 interface DashboardClientProps {
@@ -39,7 +39,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     try {
       const res = await fetch('/api/pets');
       const data = await res.json();
-      if (data.pets) {
+      if (data.pets && Array.isArray(data.pets)) {
         setPets(data.pets);
         if (data.pets.length > 0) {
           setSelectedPet(getActivePetFromList(data.pets));
@@ -50,6 +50,18 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     }
   };
 
+  const handlePetAdded = (newPet?: Pet) => {
+    if (newPet && newPet.id) {
+      document.cookie = `puppy_active_pet_id=${newPet.id}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      setPets((prev) => {
+        const filtered = prev.filter((p) => p.id !== newPet.id);
+        return [...filtered, newPet];
+      });
+      setSelectedPet(newPet);
+    }
+    fetchPets();
+  };
+
   const currentPet = selectedPet || (pets.length > 0 ? pets[pets.length - 1] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
@@ -58,113 +70,118 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
   const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + curr.amount, 0);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Header & Pet Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Dashboard
-          </h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
-            Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}! Here&apos;s what&apos;s happening with{' '}
-            <span className="font-extrabold text-slate-800">
-              {currentPet?.name || 'your registered pets'}
-            </span>.
-          </p>
+    <div className="space-y-6 animate-fadeIn">
+      {/* Top Header & Pet Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-4">
+          {currentPet?.photo ? (
+            <img
+              src={currentPet.photo}
+              alt={currentPet.name}
+              className="w-14 h-14 rounded-2xl object-cover border-2 border-brand-coral/20 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-brand-coral/10 text-brand-coral flex items-center justify-center font-bold text-xl shrink-0">
+              🐾
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Welcome back, {userName || 'Pet Owner'}! 👋
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Managing profile, health, expenses &amp; QR protection for{' '}
+              <span className="text-brand-coral font-bold">{currentPet ? currentPet.name : 'your pets'}</span>
+            </p>
+          </div>
         </div>
 
         <PetSelector
           pets={pets}
           selectedPet={currentPet}
-          onSelectPet={(p) => setSelectedPet(p)}
+          onSelectPet={setSelectedPet}
           onAddPetClick={() => setIsAddPetOpen(true)}
         />
       </div>
 
-      {/* 4 Stat Cards Row (Clean 0 when no pets) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Lost Pet Status Banner if lost */}
+      {currentPet && (
+        <LostModeBanner
+          petId={currentPet.id}
+          petName={currentPet.name}
+          isLost={!!currentPet.isLost}
+          onStatusChange={fetchPets}
+        />
+      )}
+
+      {/* Overview Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Vaccinations"
-          value={currentPet ? vaccinations.length : 0}
-          subtitle="Total Records"
+          value={vaccinations.length.toString()}
+          subtitle={`${vaccinations.filter((v: any) => v.status === 'COMPLETED').length} Completed`}
           icon={<Syringe className="w-6 h-6" />}
           href="/dashboard/vaccinations"
           colorScheme="green"
         />
         <StatCard
-          title="Expenses"
-          value={currentPet ? `₹${totalSpent.toLocaleString('en-IN')}` : '₹0'}
-          subtitle="Total Spent"
+          title="Total Expenses"
+          value={`₹${totalSpent.toLocaleString()}`}
+          subtitle={`${expenses.length} Receipts Saved`}
           icon={<DollarSign className="w-6 h-6" />}
           href="/dashboard/expenses"
           colorScheme="blue"
         />
         <StatCard
-          title="Reminders"
-          value={currentPet ? reminders.filter((r: Reminder) => !r.isCompleted).length : 0}
-          subtitle="Upcoming"
+          title="Active Reminders"
+          value={reminders.length.toString()}
+          subtitle={`${reminders.filter((r: any) => !r.isCompleted).length} Pending`}
           icon={<Bell className="w-6 h-6" />}
           href="/dashboard/reminders"
-          colorScheme="orange"
+          colorScheme="purple"
         />
         <StatCard
-          title="Profile Views"
-          value={currentPet ? (currentPet as any)?.qrCode?.scanCount || 0 : 0}
-          subtitle="This Month"
+          title="QR Profile Scans"
+          value={(currentPet as any)?.qrCode?.scanCount?.toString() || '0'}
+          subtitle="Lifetime Finder Scans"
           icon={<Eye className="w-6 h-6" />}
-          href="/dashboard/analytics"
-          colorScheme="purple"
+          href="/dashboard/qr-code"
+          colorScheme="orange"
         />
       </div>
 
-      {/* Lost Mode Banner */}
-      {currentPet && (
-        <LostModeBanner
-          petId={currentPet.id}
-          petName={currentPet.name}
-          isLost={currentPet.isLost}
-          onStatusChange={fetchPets}
-        />
-      )}
-
-      {/* Main Content: Empty State when No Pets or Active Widgets when Pet exists */}
+      {/* Main Grid: Empty state vs Pet Dashboard Widgets */}
       {!currentPet ? (
-        <div className="bg-white rounded-3xl p-10 md:p-14 border border-slate-100 shadow-sm text-center max-w-2xl mx-auto space-y-6">
-          <div className="w-20 h-20 rounded-full bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-md">
-            <Dog className="w-10 h-10" />
+        <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 space-y-4 shadow-xs">
+          <div className="w-16 h-16 rounded-full bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-xs">
+            <Dog className="w-8 h-8" />
           </div>
-
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-slate-900">
-              Welcome{userName ? `, ${userName}` : ''}! Add Your First Pet
-            </h2>
-            <p className="text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              Your pet dashboard is currently clean and empty. Click below to add your dog&apos;s details and generate a custom QR collar ID tag.
-            </p>
+          <h2 className="text-xl font-extrabold text-slate-900">Add Your First Pet Profile</h2>
+          <p className="text-xs text-slate-500 font-medium max-w-md mx-auto leading-relaxed">
+            Create a digital QR identity tag, track vaccination history, monitor pet care expenses, and set health reminders for your puppy.
+          </p>
+          <div className="pt-2">
+            <Button
+              onClick={() => setIsAddPetOpen(true)}
+              variant="primary"
+              className="font-bold shadow-md shadow-brand-coral/20 px-6 py-3 text-sm"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              Add Your First Pet
+            </Button>
           </div>
-
-          <Button
-            onClick={() => setIsAddPetOpen(true)}
-            variant="primary"
-            size="lg"
-            className="font-bold shadow-xl shadow-brand-coral/20 px-8"
-            icon={<Plus className="w-5 h-5" />}
-          >
-            Add Your First Pet
-          </Button>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-slate-100 text-xs font-semibold text-slate-500">
+          <div className="pt-4 grid grid-cols-3 gap-2 text-[11px] text-slate-400 font-medium max-w-sm mx-auto border-t border-slate-100">
             <div className="flex items-center justify-center gap-1.5">
               <QrCode className="w-4 h-4 text-brand-coral" />
-              <span>Instant QR Collar Tag</span>
+              <span>Digital Tag</span>
             </div>
             <div className="flex items-center justify-center gap-1.5">
               <Syringe className="w-4 h-4 text-emerald-600" />
-              <span>Vaccination Tracker</span>
+              <span>Vaccines</span>
             </div>
             <div className="flex items-center justify-center gap-1.5">
               <DollarSign className="w-4 h-4 text-blue-600" />
-              <span>Expense Monitoring</span>
+              <span>Expenses</span>
             </div>
           </div>
         </div>
@@ -193,7 +210,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       <AddPetModal
         isOpen={isAddPetOpen}
         onClose={() => setIsAddPetOpen(false)}
-        onSuccess={fetchPets}
+        onSuccess={handlePetAdded}
       />
     </div>
   );

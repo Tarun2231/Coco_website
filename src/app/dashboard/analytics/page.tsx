@@ -11,7 +11,7 @@ export default async function AnalyticsPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const pet: any = await getActivePetForUser(user.id, {
+  const pet: any = await getActivePetForUser(user.id, user.email, {
     expenses: { orderBy: { date: 'desc' } },
     vaccinations: { orderBy: { dateAdministered: 'desc' } },
     reminders: { orderBy: { date: 'asc' } },
