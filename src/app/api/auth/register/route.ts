@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '@/lib/db';
+import { db, ensureTablesExist } from '@/lib/db';
 import { signToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,10 +21,18 @@ export async function POST(req: Request) {
     const cleanBreed = breed ? String(breed).trim() : 'Golden Retriever';
     const cleanSpecies = species ? String(species).trim() : 'Dog';
 
+    // 0. Ensure physical database tables (User, Pet, etc.) exist before first registration query
+    await ensureTablesExist();
+
     // 1. Check duplicate account
-    const existingUser = await db.user.findUnique({
-      where: { email: cleanEmail },
-    });
+    let existingUser = null;
+    try {
+      existingUser = await db.user.findUnique({
+        where: { email: cleanEmail },
+      });
+    } catch (err: any) {
+      console.warn('User query exception on first registration, proceeding with table creation:', err?.message);
+    }
 
     if (existingUser) {
       return NextResponse.json(
