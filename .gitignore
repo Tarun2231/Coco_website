@@ -9,6 +9,7 @@
 # Database files
 /prisma/dev.db
 /prisma/dev.db-journal
+/data/
 
 # Environment variables
 .env
