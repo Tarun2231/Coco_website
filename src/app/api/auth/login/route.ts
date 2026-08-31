@@ -5,6 +5,15 @@ import { signToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+function withTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Database operation timed out')), ms)
+    ),
+  ]);
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -74,12 +83,15 @@ export async function POST(req: Request) {
       return response;
     }
 
-    // 2. Custom User Login Lookup
+    // 2. Custom User Login Lookup with 3s timeout guard
     let authenticatedUser: any = null;
     try {
-      const user = await db.user.findUnique({
-        where: { email: cleanEmail },
-      });
+      const user = await withTimeout(
+        db.user.findUnique({
+          where: { email: cleanEmail },
+        }),
+        2500
+      );
 
       if (user) {
         const isMatch = await bcrypt.compare(cleanPassword, user.password);
