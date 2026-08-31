@@ -1,16 +1,16 @@
-// Prisma Schema for Puppy ID (SQLite & PostgreSQL Compatible)
+// Prisma Schema for Puppy ID (MongoDB Atlas)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String         @id @default(uuid())
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
   email         String         @unique
   password      String
   name          String
@@ -28,9 +28,9 @@ model User {
 }
 
 model Pet {
-  id               String          @id @default(uuid())
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
   publicId         String          @unique // Short URL slug e.g. "bruno"
-  userId           String
+  userId           String          @db.ObjectId
   name             String
   species          String          @default("Dog")
   breed            String
@@ -71,8 +71,8 @@ model Pet {
 }
 
 model PrivacySetting {
-  id               String   @id @default(uuid())
-  petId            String   @unique
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId            String   @unique @db.ObjectId
   showName         Boolean  @default(true)
   showPhoto        Boolean  @default(true)
   showBreed        Boolean  @default(true)
@@ -93,8 +93,8 @@ model PrivacySetting {
 }
 
 model Vaccination {
-  id               String   @id @default(uuid())
-  petId            String
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId            String   @db.ObjectId
   vaccineName      String
   dateAdministered DateTime
   nextDueDate      DateTime?
@@ -111,8 +111,8 @@ model Vaccination {
 }
 
 model Expense {
-  id               String   @id @default(uuid())
-  petId            String
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId            String   @db.ObjectId
   category         String   // Food, Vet, Vaccination, Medicine, Grooming, Toys, Accessories, Training, Insurance, Boarding, Other
   description      String
   amount           Float
@@ -129,8 +129,8 @@ model Expense {
 }
 
 model Reminder {
-  id          String   @id @default(uuid())
-  petId       String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId       String   @db.ObjectId
   title       String
   category    String   // Vaccination, Deworming, Flea Treatment, Grooming, Vet Visit, Medicine, Food, Custom
   date        DateTime
@@ -145,8 +145,8 @@ model Reminder {
 }
 
 model PetDocument {
-  id          String   @id @default(uuid())
-  petId       String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId       String   @db.ObjectId
   title       String
   category    String   // Vaccination Certificate, Medical Record, Vet Report, Insurance, Registration, Adoption Papers, Other
   fileUrl     String
@@ -158,8 +158,8 @@ model PetDocument {
 }
 
 model QRCode {
-  id          String   @id @default(uuid())
-  petId       String   @unique
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId       String   @unique @db.ObjectId
   qrCodeUrl   String
   scanCount   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -169,8 +169,8 @@ model QRCode {
 }
 
 model QRScan {
-  id          String   @id @default(uuid())
-  petId       String
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId       String   @db.ObjectId
   scannedAt   DateTime @default(now())
   ip          String?
   userAgent   String?
@@ -183,8 +183,8 @@ model QRScan {
 }
 
 model FinderMessage {
-  id               String   @id @default(uuid())
-  petId            String
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  petId            String   @db.ObjectId
   senderName       String
   senderPhone      String?
   message          String
@@ -205,9 +205,9 @@ model FinderMessage {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  petId     String?
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  petId     String?  @db.ObjectId
   title     String
   message   String
   type      String   // VACCINATION, REMINDER, MESSAGE, LOST_MODE, PROFILE_VIEW
@@ -219,8 +219,8 @@ model Notification {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String?  @db.ObjectId
   action      String
   entity      String
   entityId    String?
@@ -231,8 +231,8 @@ model AuditLog {
 }
 
 model LoginLog {
-  id        String   @id @default(uuid())
-  userId    String?
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?  @db.ObjectId
   userEmail String
   userName  String?
   ip        String?  @default("182.73.12.105")

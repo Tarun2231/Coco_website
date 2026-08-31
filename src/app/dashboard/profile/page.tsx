@@ -36,10 +36,17 @@ export default async function PetProfilePage() {
 
   let pet: any = null;
   try {
-    pet = await db.pet.findFirst({
-      where: { userId: user.id },
-      include: { privacySetting: true, qrCode: true },
-    });
+    if (user.id && user.id.length === 24) {
+      pet = await db.pet.findFirst({
+        where: { userId: user.id },
+        include: { privacySetting: true, qrCode: true },
+      });
+    } else if (user.email) {
+      pet = await db.pet.findFirst({
+        where: { user: { email: user.email } },
+        include: { privacySetting: true, qrCode: true },
+      });
+    }
   } catch (err) {
     console.error('Pet profile fetch error:', err);
   }
