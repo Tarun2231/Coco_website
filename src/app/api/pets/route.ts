@@ -12,13 +12,8 @@ export async function GET() {
 
   let pets: any[] = [];
   try {
-    const userCondition: any[] = [{ userId: user.id }];
-    if (user.email) {
-      userCondition.push({ user: { email: user.email.toLowerCase().trim() } });
-    }
-
     pets = await db.pet.findMany({
-      where: { OR: userCondition },
+      where: { userId: user.id },
       include: {
         privacySetting: true,
         vaccinations: true,
@@ -27,7 +22,7 @@ export async function GET() {
         documents: true,
         qrCode: true,
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
     });
   } catch (err) {
     console.error('GET /api/pets DB error:', err);
@@ -50,26 +45,23 @@ export async function POST(req: Request) {
 
     const cleanName = String(data.name).trim();
     const publicId = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Math.random().toString(36).substring(2, 6)}`;
-    const petId = `pet-${Math.random().toString(36).substring(2, 8)}`;
 
     let newPet = null;
 
     try {
-      // 1. Ensure User exists in DB using id OR email
-      let dbUser = await db.user.findFirst({
-        where: {
-          OR: [
-            { id: user.id },
-            { email: user.email.toLowerCase().trim() },
-          ],
-        },
-      });
+      // 1. Ensure User exists in DB to satisfy Foreign Key relation
+      let dbUser = null;
+      if (user.id && user.id.length === 24) {
+        dbUser = await db.user.findUnique({ where: { id: user.id } }).catch(() => null);
+      }
+      if (!dbUser && user.email) {
+        dbUser = await db.user.findUnique({ where: { email: user.email } }).catch(() => null);
+      }
 
       if (!dbUser) {
         dbUser = await db.user.create({
           data: {
-            id: user.id,
-            email: user.email.toLowerCase().trim(),
+            email: user.email,
             name: user.name,
             password: 'demo-password-hash',
             phone: user.phone || '+91 98765 43210',
@@ -81,7 +73,6 @@ export async function POST(req: Request) {
       // 2. Create Pet in DB
       newPet = await db.pet.create({
         data: {
-          id: petId,
           userId: dbUser.id,
           publicId,
           name: cleanName,
@@ -125,19 +116,16 @@ export async function POST(req: Request) {
         include: {
           privacySetting: true,
           qrCode: true,
-          vaccinations: true,
-          expenses: true,
-          reminders: true,
         },
       });
     } catch (dbErr) {
       console.error('DB Pet creation error, using session fallback:', dbErr);
     }
 
-    // Fallback pet object if DB insertion fails on serverless SQLite
+    // Fallback pet object if DB insertion fails on serverless environments
     if (!newPet) {
       newPet = {
-        id: petId,
+        id: `pet-${Math.random().toString(36).substring(2, 8)}`,
         publicId,
         userId: user.id,
         name: cleanName,
@@ -167,14 +155,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const response = NextResponse.json({ success: true, pet: newPet });
-    if (newPet && newPet.id) {
-      response.headers.set(
-        'Set-Cookie',
-        `puppy_active_pet_id=${newPet.id}; Path=/; Max-Age=31536000; SameSite=Lax`
-      );
-    }
-    return response;
+    return NextResponse.json({ success: true, pet: newPet });
   } catch (err) {
     console.error('Add pet error:', err);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });

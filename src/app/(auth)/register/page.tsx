@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PawPrint, User, Mail, Lock, Phone, Dog, ArrowRight } from 'lucide-react';
+import { PawPrint, User, Mail, Lock, Phone, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export default function RegisterPage() {
@@ -14,8 +14,6 @@ export default function RegisterPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    petName: '',
-    breed: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,7 +65,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Owner Full Name *</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
             <div className="relative">
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -76,13 +74,13 @@ export default function RegisterPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="John Doe"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address *</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -91,34 +89,7 @@ export default function RegisterPage() {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="you@email.com"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Puppy Name</label>
-              <div className="relative">
-                <Dog className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <input
-                  type="text"
-                  value={formData.petName}
-                  onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
-                  placeholder="e.g. Rocky"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Breed</label>
-              <input
-                type="text"
-                value={formData.breed}
-                onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                placeholder="Golden Retriever"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral"
               />
             </div>
           </div>
@@ -132,13 +103,13 @@ export default function RegisterPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+91 98765 43210"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password *</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -147,13 +118,13 @@ export default function RegisterPage() {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Confirm Password *</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Confirm Password</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -162,7 +133,7 @@ export default function RegisterPage() {
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral font-medium"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-brand-coral"
               />
             </div>
           </div>
@@ -174,7 +145,7 @@ export default function RegisterPage() {
             className="w-full font-bold shadow-md shadow-brand-coral/20 mt-2"
             icon={<ArrowRight className="w-4 h-4" />}
           >
-            {loading ? 'Creating account...' : 'Create Account & Setup Pet'}
+            {loading ? 'Creating account...' : 'Create Account'}
           </Button>
         </form>
 

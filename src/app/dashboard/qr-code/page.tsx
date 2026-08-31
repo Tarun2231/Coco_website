@@ -1,10 +1,10 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { getActivePetForUser } from '@/lib/getPet';
+import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { QRCodeCard } from '@/components/dashboard/QRCodeCard';
 import { PrintableTagCard } from '@/components/pet/PrintableTagCard';
-import { QrCode, Plus } from 'lucide-react';
+import { QrCode, Plus, Dog } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 
@@ -26,9 +26,15 @@ export default async function QRCodeStudioPage() {
 
   const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
-  let pet: any = await getActivePetForUser(user.id, user.email, {
-    qrCode: true,
-  });
+  let pet: any = null;
+  try {
+    pet = await db.pet.findFirst({
+      where: { userId: user.id },
+      include: { qrCode: true },
+    });
+  } catch (err) {
+    console.error('QR code fetch error:', err);
+  }
 
   if (!pet && isDemoAccount) {
     pet = fallbackBrunoPet;
@@ -46,7 +52,7 @@ export default async function QRCodeStudioPage() {
         </p>
         <Link href="/dashboard" className="block pt-2">
           <Button variant="primary" className="font-bold shadow-md shadow-brand-coral/20 px-6" icon={<Plus className="w-4 h-4" />}>
-            Go to Dashboard &amp; Add Pet
+            Go to Dashboard & Add Pet
           </Button>
         </Link>
       </div>
@@ -56,7 +62,7 @@ export default async function QRCodeStudioPage() {
   return (
     <div className="space-y-6 max-w-5xl animate-fadeIn">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">QR Code &amp; Printable Tag Studio</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">QR Code & Printable Tag Studio</h1>
         <p className="text-sm text-slate-500 font-medium">Download digital QR codes or generate print-ready collar ID tags for {pet.name}</p>
       </div>
 
