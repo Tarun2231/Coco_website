@@ -26,10 +26,10 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     try {
       const res = await fetch('/api/pets');
       const data = await res.json();
-      if (data.pets) {
+      if (data.pets && Array.isArray(data.pets)) {
         setPets(data.pets);
         if (data.pets.length > 0) {
-          setSelectedPet(data.pets[0]);
+          setSelectedPet(data.pets[data.pets.length - 1]);
         }
       }
     } catch (err) {
@@ -37,12 +37,20 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     }
   };
 
-  const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
+  const handlePetAdded = (newPet?: any) => {
+    if (newPet) {
+      setPets((prev) => [...prev, newPet]);
+      setSelectedPet(newPet);
+    }
+    fetchPets();
+  };
+
+  const currentPet = selectedPet || (pets.length > 0 ? pets[pets.length - 1] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
   const expenses = (currentPet as any)?.expenses || [];
   const reminders = (currentPet as any)?.reminders || [];
-  const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + curr.amount, 0);
+  const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + Number(curr.amount || 0), 0);
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -68,7 +76,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
         />
       </div>
 
-      {/* 4 Stat Cards Row (Clean 0 when no pets) */}
+      {/* 4 Stat Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Vaccinations"
@@ -180,7 +188,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       <AddPetModal
         isOpen={isAddPetOpen}
         onClose={() => setIsAddPetOpen(false)}
-        onSuccess={fetchPets}
+        onSuccess={handlePetAdded}
       />
     </div>
   );
