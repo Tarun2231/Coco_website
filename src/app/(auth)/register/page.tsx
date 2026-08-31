@@ -2,12 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { PawPrint, User, Mail, Lock, Phone, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -33,13 +31,18 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await res.json();
-      if (res.ok) {
-        router.push('/dashboard');
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (data.token) {
+          document.cookie = `puppy_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60};`;
+        }
+        window.location.href = '/dashboard';
       } else {
-        setError(data.error || 'Registration failed');
+        setError(data.error || 'Registration failed. Please try again.');
       }
     } catch (err) {
+      console.error(err);
       setError('An error occurred during registration.');
     } finally {
       setLoading(false);
@@ -65,7 +68,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name *</label>
             <div className="relative">
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -80,7 +83,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address *</label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -109,7 +112,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password *</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -124,7 +127,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Confirm Password</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Confirm Password *</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
