@@ -18,52 +18,47 @@ export async function POST(req: Request) {
     const cleanName = String(name).trim();
     const cleanPhone = phone ? String(phone).trim() : '+91 98765 43210';
 
-    let userId = `user-${Math.random().toString(36).substring(2, 8)}`;
-    let userRole = 'USER';
+    // 1. Check if user already exists in MongoDB Atlas
+    const existingUser = await db.user.findUnique({
+      where: { email: cleanEmail },
+    });
 
-    try {
-      const existingUser = await db.user.findUnique({
-        where: { email: cleanEmail },
-      });
-
-      if (existingUser) {
-        return NextResponse.json({ error: 'Account with this email already exists' }, { status: 400 });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const user = await db.user.create({
-        data: {
-          name: cleanName,
-          email: cleanEmail,
-          password: hashedPassword,
-          phone: cleanPhone,
-          role: 'USER',
-        },
-      });
-      userId = user.id;
-    } catch (dbErr) {
-      console.error('DB Registration error, proceeding with session token:', dbErr);
+    if (existingUser) {
+      return NextResponse.json({ error: 'Account with this email already exists' }, { status: 400 });
     }
 
-    // Sign token preserving cleanName and cleanPhone
+    // 2. Hash password securely
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 3. Perform REAL database insert into MongoDB Atlas (coco_website -> User collection)
+    const user = await db.user.create({
+      data: {
+        name: cleanName,
+        email: cleanEmail,
+        password: hashedPassword,
+        phone: cleanPhone,
+        role: 'USER',
+      },
+    });
+
+    // 4. Sign JWT session token with real MongoDB user.id
     const token = signToken({
-      userId,
-      email: cleanEmail,
-      role: userRole,
-      name: cleanName,
-      phone: cleanPhone,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      phone: user.phone || cleanPhone,
     });
 
     const response = NextResponse.json({
       success: true,
       token,
       user: {
-        id: userId,
-        email: cleanEmail,
-        name: cleanName,
-        phone: cleanPhone,
-        role: userRole,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
       },
     });
 
@@ -73,8 +68,11 @@ export async function POST(req: Request) {
     );
 
     return response;
-  } catch (err) {
-    console.error('Register error:', err);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (err: any) {
+    console.error('MongoDB Atlas Registration Error:', err);
+    return NextResponse.json(
+      { error: err?.message || 'Database error: Unable to create user account in MongoDB Atlas.' },
+      { status: 500 }
+    );
   }
 }
