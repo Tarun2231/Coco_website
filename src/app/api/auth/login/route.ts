@@ -17,22 +17,6 @@ export async function POST(req: Request) {
     const cleanEmail = String(email).toLowerCase().trim();
     const cleanPassword = String(password).trim();
 
-    // Track Login Security Log
-    try {
-      await db.loginLog.create({
-        data: {
-          userEmail: cleanEmail,
-          userName: cleanEmail.includes('admin') ? 'System Administrator' : 'Pet Owner',
-          ip: '182.73.12.105',
-          device: 'Chrome / Windows Mobile',
-          city: 'Hyderabad',
-          country: 'India',
-        },
-      });
-    } catch (logErr) {
-      // Ignore log error
-    }
-
     // 1. Instant Demo Accounts (Explicit Demo Buttons)
     if (cleanEmail === 'owner@puppyid.com' && (cleanPassword === 'password123' || cleanPassword === 'owner123')) {
       const token = signToken({
@@ -90,40 +74,56 @@ export async function POST(req: Request) {
       return response;
     }
 
-    // 2. Custom User Login
-    let authenticatedUser = null;
-    try {
-      const user = await db.user.findUnique({
-        where: { email: cleanEmail },
-      });
+    // 2. REAL MongoDB User Login
+    const user = await db.user.findUnique({
+      where: { email: cleanEmail },
+    });
 
-      if (user) {
-        const isMatch = await bcrypt.compare(cleanPassword, user.password);
-        if (isMatch) {
-          authenticatedUser = user;
-        }
-      }
-    } catch (dbErr) {
-      console.error('DB Login lookup error:', dbErr);
+    if (!user) {
+      return NextResponse.json({ error: 'No account found with this email address. Please register first.' }, { status: 400 });
     }
 
-    // If custom user matched in DB or logging in with non-demo credentials
+    // Verify password hash
+    const isMatch = await bcrypt.compare(cleanPassword, user.password);
+    if (!isMatch) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    }
+
+    // Log security entry
+    try {
+      await db.loginLog.create({
+        data: {
+          userId: user.id,
+          userEmail: user.email,
+          userName: user.name,
+          ip: '182.73.12.105',
+          device: 'Chrome / Mobile',
+          city: 'Hyderabad',
+          country: 'India',
+        },
+      });
+    } catch (logErr) {
+      console.error('LoginLog error:', logErr);
+    }
+
+    // Sign JWT session token with real MongoDB user.id
     const token = signToken({
-      userId: authenticatedUser?.id || `user-${cleanEmail.replace(/[^a-z0-9]/g, '')}`,
-      email: cleanEmail,
-      role: authenticatedUser?.role || 'USER',
-      name: authenticatedUser?.name || 'Pet Owner',
-      phone: authenticatedUser?.phone || '+91 98765 43210',
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      phone: user.phone || '+91 98765 43210',
     });
 
     const response = NextResponse.json({
       success: true,
       token,
       user: {
-        id: authenticatedUser?.id || `user-${cleanEmail.replace(/[^a-z0-9]/g, '')}`,
-        email: cleanEmail,
-        name: authenticatedUser?.name || 'Pet Owner',
-        role: authenticatedUser?.role || 'USER',
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
       },
     });
 
@@ -133,8 +133,8 @@ export async function POST(req: Request) {
     );
 
     return response;
-  } catch (err) {
-    console.error('Login route error:', err);
-    return NextResponse.json({ error: 'Failed to process login request' }, { status: 500 });
+  } catch (err: any) {
+    console.error('MongoDB Atlas Login route error:', err);
+    return NextResponse.json({ error: err?.message || 'Database error processing login' }, { status: 500 });
   }
 }
