@@ -5,6 +5,15 @@ import { signToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+function withTimeout<T>(promise: Promise<T>, ms: number = 3000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Database operation timed out')), ms)
+    ),
+  ]);
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -21,11 +30,14 @@ export async function POST(req: Request) {
     let userId = `user-${Math.random().toString(36).substring(2, 8)}`;
     let userRole = 'USER';
 
-    // 1. Try real database insert into MongoDB
+    // 1. Try real database insert into MongoDB with 3s max timeout guard
     try {
-      const existingUser = await db.user.findUnique({
-        where: { email: cleanEmail },
-      });
+      const existingUser = await withTimeout(
+        db.user.findUnique({
+          where: { email: cleanEmail },
+        }),
+        2500
+      ).catch(() => null);
 
       if (existingUser) {
         return NextResponse.json({ error: 'Account with this email already exists' }, { status: 400 });
@@ -33,22 +45,25 @@ export async function POST(req: Request) {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const user = await db.user.create({
-        data: {
-          name: cleanName,
-          email: cleanEmail,
-          password: hashedPassword,
-          phone: cleanPhone,
-          role: 'USER',
-        },
-      });
+      const user = await withTimeout(
+        db.user.create({
+          data: {
+            name: cleanName,
+            email: cleanEmail,
+            password: hashedPassword,
+            phone: cleanPhone,
+            role: 'USER',
+          },
+        }),
+        3000
+      );
 
       if (user?.id) {
         userId = user.id;
         userRole = user.role || 'USER';
       }
     } catch (dbErr) {
-      console.error('Database Registration Notice (falling back to session token):', dbErr);
+      console.error('Database Registration Notice (session token generated):', dbErr);
     }
 
     // 2. Issue session token cleanly
