@@ -33,27 +33,47 @@ export async function getCurrentUser() {
   if (!payload) return null;
 
   try {
-    const user = await db.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        altPhone: true,
-        address: true,
-        avatar: true,
-        role: true,
-        createdAt: true,
-      },
-    });
+    let user: any = null;
+    if (payload.userId && payload.userId.length === 24) {
+      user = await db.user.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          altPhone: true,
+          address: true,
+          avatar: true,
+          role: true,
+          createdAt: true,
+        },
+      }).catch(() => null);
+    }
+
+    if (!user && payload.email) {
+      user = await db.user.findUnique({
+        where: { email: payload.email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          altPhone: true,
+          address: true,
+          avatar: true,
+          role: true,
+          createdAt: true,
+        },
+      }).catch(() => null);
+    }
 
     if (user) return user;
   } catch (err) {
-    console.error('getCurrentUser DB error, falling back to session payload:', err);
+    console.error('getCurrentUser DB error:', err);
   }
 
-  // Preserve user's real registered name, email & phone from token payload!
+  // Preserve user's session payload for demo accounts
   return {
     id: payload.userId,
     email: payload.email,
