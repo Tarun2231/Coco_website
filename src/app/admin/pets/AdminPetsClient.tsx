@@ -15,6 +15,11 @@ import {
   FileText,
   Upload,
   X,
+  AlertTriangle,
+  QrCode,
+  ShieldCheck,
+  Activity,
+  Heart,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -301,6 +306,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
+  const totalPuppies = pets.length;
+  const lostPuppiesCount = pets.filter((p) => p.isLost).length;
+  const totalVaccinations = pets.reduce((acc, p) => acc + (p.vaccinations?.length || 0), 0);
+  const totalScans = pets.reduce((acc, p) => acc + (p.qrCode?.scanCount || 0), 0);
+
   const isMale = newPetData.gender === 'Male';
   const themeBgClass = isMale
     ? 'bg-blue-900/40 border-blue-500/50 text-blue-100'
@@ -314,38 +324,82 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl animate-fadeIn">
+    <div className="space-y-8 max-w-7xl animate-fadeIn">
       {/* Hidden File Inputs */}
       <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileUpload} className="hidden" />
       <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black text-white flex items-center gap-2 tracking-tight">
-            <Dog className="w-7 h-7 text-amber-500" />
-            <span>Puppy ID Step-by-Step Admin Studio</span>
-          </h1>
-          <p className="text-sm text-slate-400 font-medium mt-1">
-            Add puppies step-by-step, generate separate QR code tags, update details & vaccination history
-          </p>
-        </div>
+      {/* Main Studio Banner Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8 border border-slate-800 shadow-2xl">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black uppercase tracking-wider">
+              <Dog className="w-4 h-4" />
+              <span>Puppy ID Studio Registry</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+              Multi-Puppy Management & QR Tag Studio
+            </h1>
+            <p className="text-sm text-slate-400 font-medium max-w-2xl">
+              Add puppies step-by-step, generate separate QR code tags, update vaccinations, and control emergency Lost Mode.
+            </p>
+          </div>
 
-        <Button
-          onClick={() => {
-            setStep(1);
-            setIsAddModalOpen(true);
-          }}
-          variant="primary"
-          size="lg"
-          className="font-extrabold bg-brand-coral hover:bg-rose-600 shadow-xl shadow-brand-coral/20 px-6"
-          icon={<Plus className="w-5 h-5" />}
-        >
-          ➕ Add New Puppy (Step-by-Step)
-        </Button>
+          <Button
+            onClick={() => {
+              setStep(1);
+              setIsAddModalOpen(true);
+            }}
+            variant="primary"
+            size="lg"
+            className="font-black bg-gradient-to-r from-brand-coral via-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-xl shadow-brand-coral/25 px-8 py-3.5 rounded-2xl text-sm transform hover:scale-[1.02] transition-transform"
+            icon={<Plus className="w-5 h-5" />}
+          >
+            ➕ Add New Puppy (Step-by-Step)
+          </Button>
+        </div>
       </div>
 
-      {/* Puppy Registry Cards */}
+      {/* 4 Stat Overview Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-slate-950/90 rounded-3xl p-5 border border-slate-800/80 shadow-lg space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Registered Puppies</span>
+            <Dog className="w-5 h-5 text-amber-400" />
+          </div>
+          <div className="text-3xl font-black text-white">{totalPuppies}</div>
+          <p className="text-[11px] text-slate-500 font-medium">Digital QR ID tags created</p>
+        </div>
+
+        <div className="bg-slate-950/90 rounded-3xl p-5 border border-slate-800/80 shadow-lg space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Lost Emergencies</span>
+            <AlertTriangle className="w-5 h-5 text-rose-500" />
+          </div>
+          <div className="text-3xl font-black text-rose-400">{lostPuppiesCount}</div>
+          <p className="text-[11px] text-slate-500 font-medium">Active emergency alerts</p>
+        </div>
+
+        <div className="bg-slate-950/90 rounded-3xl p-5 border border-slate-800/80 shadow-lg space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">Verified Vaccines</span>
+            <Syringe className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="text-3xl font-black text-emerald-400">{totalVaccinations}</div>
+          <p className="text-[11px] text-slate-500 font-medium">Rabies & booster records</p>
+        </div>
+
+        <div className="bg-slate-950/90 rounded-3xl p-5 border border-slate-800/80 shadow-lg space-y-2">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider">QR Code Scans</span>
+            <QrCode className="w-5 h-5 text-blue-400" />
+          </div>
+          <div className="text-3xl font-black text-white">{totalScans}</div>
+          <p className="text-[11px] text-slate-500 font-medium">Collar tag scans logged</p>
+        </div>
+      </div>
+
+      {/* Puppy Registry Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {pets.map((pet) => {
           const publicUrl = getPetPublicUrl(pet.publicId);
@@ -356,32 +410,39 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           return (
             <div
               key={pet.id}
-              className={`bg-slate-950 rounded-3xl p-6 border flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition-all ${
-                pet.isLost ? 'border-rose-500/50 bg-rose-950/10' : 'border-slate-800'
+              className={`bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 rounded-3xl p-6 border flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition-all shadow-xl ${
+                pet.isLost ? 'border-rose-500/60 bg-rose-950/20 ring-2 ring-rose-500/20' : 'border-slate-800'
               }`}
             >
               <div>
-                {/* Dog Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                {/* Dog Card Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
                   <div className="flex items-center gap-3">
                     <img
                       src={pet.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400'}
                       alt={pet.name}
-                      className={`w-12 h-12 rounded-full object-cover shrink-0 border-2 ${
-                        isPetMale ? 'border-blue-400' : 'border-rose-400'
+                      className={`w-13 h-13 rounded-full object-cover shrink-0 border-2 shadow-md ${
+                        isPetMale ? 'border-blue-400 ring-2 ring-blue-500/20' : 'border-rose-400 ring-2 ring-rose-500/20'
                       }`}
                     />
                     <div>
-                      <h3 className="font-extrabold text-white text-lg leading-tight">{pet.name}</h3>
-                      <p className="text-xs text-amber-500 font-semibold">{pet.breed}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-white text-xl leading-tight">{pet.name}</h3>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                          isPetMale ? 'bg-blue-900/60 text-blue-300 border border-blue-500/40' : 'bg-rose-900/60 text-rose-300 border border-rose-500/40'
+                        }`}>
+                          {isPetMale ? '♂ Male' : '♀ Female'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-400 font-bold mt-0.5">{pet.breed}</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => toggleLostStatus(pet.id, pet.isLost)}
-                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm ${
                       pet.isLost
-                        ? 'bg-rose-600 text-white animate-pulse'
+                        ? 'bg-rose-600 text-white animate-pulse shadow-rose-600/40'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
@@ -389,47 +450,47 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Unique QR Code Container */}
-                <div className="my-4 p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
+                {/* Unique High-Contrast QR Code Container */}
+                <div className="my-4 p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-lg border border-slate-200">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
-                    size={140}
+                    size={145}
                     bgColor={'#ffffff'}
                     fgColor={'#182232'}
                     level={'H'}
                     includeMargin={true}
                   />
-                  <div className="text-[10px] font-mono text-slate-600 mt-2 truncate max-w-full font-bold">
+                  <div className="text-[11px] font-mono text-slate-700 mt-2 truncate.max-w-full font-bold bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
                     /pet/{pet.publicId}
                   </div>
                 </div>
 
-                {/* Dog Info Pills */}
-                <div className="space-y-1.5 text-xs text-slate-300 bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Species & Gender:</span>
-                    <span className="font-bold text-white">{pet.species} ({pet.gender})</span>
+                {/* Info Details Pills */}
+                <div className="space-y-2 text-xs text-slate-300 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-medium">Species & Color:</span>
+                    <span className="font-extrabold text-white">{pet.species} • {pet.color || 'Golden'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Color & Weight:</span>
-                    <span className="font-bold text-slate-200">{pet.color || 'Golden'} • {pet.weight || '28 kg'}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-medium">Weight:</span>
+                    <span className="font-extrabold text-slate-200">{pet.weight || '28 kg'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Microchip ID:</span>
-                    <span className="font-mono font-bold text-slate-200">{pet.microchipId || '988 000 123 456 789'}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 font-medium">Microchip ID:</span>
+                    <span className="font-mono font-bold text-amber-300">{pet.microchipId || '988 000 123 456 789'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500 font-medium">Vaccination Records:</span>
-                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                  <div className="flex justify-between items-center pt-1 border-t border-slate-800/80">
+                    <span className="text-slate-400 font-medium">Vaccination History:</span>
+                    <span className="font-extrabold text-emerald-400 flex items-center gap-1">
                       <Syringe className="w-3.5 h-3.5" />
-                      <span>{vacList.length} Vaccine(s)</span>
+                      <span>{vacList.length} Record(s)</span>
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Actions Button Row */}
+              {/* Action Buttons Row */}
               <div className="space-y-2 pt-2">
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -445,7 +506,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                         photo: pet.photo,
                       });
                     }}
-                    className="py-2 px-2 bg-slate-900 hover:bg-slate-800 text-slate-200 font-extrabold text-xs rounded-xl border border-slate-800 flex items-center justify-center gap-1.5 transition-colors"
+                    className="py-2.5 px-2 bg-slate-900 hover:bg-slate-800 text-slate-200 font-extrabold text-xs rounded-xl border border-slate-800 flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Edit3 className="w-3.5 h-3.5 text-amber-400" />
                     <span>Edit Details</span>
@@ -453,17 +514,17 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
                   <button
                     onClick={() => setVaccinationPet(pet)}
-                    className="py-2 px-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-extrabold text-xs rounded-xl border border-emerald-800/80 flex items-center justify-center gap-1.5 transition-colors"
+                    className="py-2.5 px-2 bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 font-extrabold text-xs rounded-xl border border-emerald-800/80 flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Syringe className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Vaccinations</span>
+                    <span>Vaccinations ({vacList.length})</span>
                   </button>
                 </div>
 
                 <Button
                   onClick={() => downloadQR(pet.name, svgId)}
                   variant="primary"
-                  className="w-full text-xs font-bold py-2.5 bg-brand-coral hover:bg-rose-600 shadow-md"
+                  className="w-full text-xs font-black py-2.5 bg-gradient-to-r from-brand-coral to-rose-600 hover:from-rose-600 hover:to-brand-coral text-white shadow-md rounded-xl"
                   icon={<Download className="w-4 h-4" />}
                 >
                   Download Separate QR PNG
@@ -483,19 +544,24 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       {/* ==================== STEP-BY-STEP ADD PUPPY MODAL ==================== */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-lg w-full space-y-5 shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Dog className="w-5 h-5 text-amber-500" />
-                <h2 className="text-lg font-extrabold text-white">Add New Puppy - Step {step} of 4</h2>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                  <Dog className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white">Add New Puppy Studio</h2>
+                  <p className="text-[11px] text-slate-400 font-medium">Step {step} of 4</p>
+                </div>
               </div>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Step Clickable Tabs */}
+            {/* Step Tabs */}
             <div className={`grid grid-cols-4 gap-1 p-1 rounded-2xl border transition-colors ${themeBgClass}`}>
               {steps.map((s) => {
                 const Icon = s.icon;
@@ -505,9 +571,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     key={s.num}
                     type="button"
                     onClick={() => setStep(s.num)}
-                    className={`py-1.5 px-1 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
+                    className={`py-2 px-1 rounded-xl text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
                       isActive
-                        ? isMale ? 'bg-blue-600 text-white' : 'bg-rose-500 text-white'
+                        ? isMale ? 'bg-blue-600 text-white shadow-md' : 'bg-rose-500 text-white shadow-md'
                         : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
                     }`}
                   >
@@ -518,10 +584,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               })}
             </div>
 
-            <form onSubmit={handleAddPuppySubmit} className="space-y-3">
+            <form onSubmit={handleAddPuppySubmit} className="space-y-4">
               {/* Step 1: Basic Info */}
               {step === 1 && (
-                <div className="space-y-2.5 animate-fadeIn">
+                <div className="space-y-3 animate-fadeIn">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Puppy Name *</label>
                     <input
@@ -530,7 +596,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                       value={newPetData.name}
                       onChange={(e) => setNewPetData({ ...newPetData, name: e.target.value })}
                       placeholder="e.g. Bruno / Coco / Bella"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
@@ -549,11 +615,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Gender (Theme Color) *</label>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Gender (Theme Accent) *</label>
                       <select
                         value={newPetData.gender}
                         onChange={(e) => setNewPetData({ ...newPetData, gender: e.target.value as any })}
-                        className={`w-full px-3.5 py-2.5 rounded-xl border font-extrabold text-xs focus:outline-none focus:ring-2 ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl border font-black text-xs focus:outline-none focus:ring-2 ${
                           isMale
                             ? 'bg-blue-950 text-blue-200 border-blue-500 focus:ring-blue-400'
                             : 'bg-rose-950 text-rose-200 border-rose-500 focus:ring-rose-400'
@@ -612,7 +678,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                         }
                         setStep(2);
                       }}
-                      className="w-full text-xs font-bold py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950"
+                      className="w-full text-xs font-black py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-md"
                     >
                       Next: ID Tags &rarr;
                     </Button>
@@ -620,9 +686,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
               )}
 
-              {/* Step 2: ID Tags & Registration */}
+              {/* Step 2: ID Tags */}
               {step === 2 && (
-                <div className="space-y-2.5 animate-fadeIn">
+                <div className="space-y-3 animate-fadeIn">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Microchip ID</label>
                     <input
@@ -658,7 +724,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     <Button type="button" variant="secondary" onClick={() => setStep(1)} className="text-xs py-2">
                       &larr; Back
                     </Button>
-                    <Button type="button" variant="primary" onClick={() => setStep(3)} className="text-xs font-bold py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
+                    <Button type="button" variant="primary" onClick={() => setStep(3)} className="text-xs font-black py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
                       Next: Vaccinations &rarr;
                     </Button>
                   </div>
@@ -667,7 +733,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
               {/* Step 3: Initial Vaccinations */}
               {step === 3 && (
-                <div className="space-y-2.5 animate-fadeIn">
+                <div className="space-y-3 animate-fadeIn">
                   <div className="flex items-center gap-2 text-emerald-400 font-extrabold text-xs mb-1">
                     <Syringe className="w-4 h-4" />
                     <span>Add Initial Vaccine Record</span>
@@ -712,7 +778,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     <Button type="button" variant="secondary" onClick={() => setStep(2)} className="text-xs py-2">
                       &larr; Back
                     </Button>
-                    <Button type="button" variant="primary" onClick={() => setStep(4)} className="text-xs font-bold py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
+                    <Button type="button" variant="primary" onClick={() => setStep(4)} className="text-xs font-black py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
                       Next: Photo & Confirm &rarr;
                     </Button>
                   </div>
@@ -721,7 +787,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
               {/* Step 4: Photo & Public Notes */}
               {step === 4 && (
-                <div className="space-y-3 animate-fadeIn">
+                <div className="space-y-3.5 animate-fadeIn">
                   <label className="block text-[11px] font-bold text-slate-400 uppercase">Pet Photo (Upload or Take Photo)</label>
                   
                   <div className="grid grid-cols-2 gap-2">
@@ -759,7 +825,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     <Button type="button" variant="secondary" onClick={() => setStep(3)} className="text-xs py-2">
                       &larr; Back
                     </Button>
-                    <Button type="submit" variant="primary" disabled={isSubmitting} className="text-xs font-bold py-2 bg-brand-coral hover:bg-rose-600 text-white shadow-lg">
+                    <Button type="submit" variant="primary" disabled={isSubmitting} className="text-xs font-black py-2.5 bg-gradient-to-r from-brand-coral to-rose-600 hover:from-rose-600 hover:to-brand-coral text-white shadow-xl">
                       {isSubmitting ? 'Generating QR Code...' : 'Add Puppy & Generate QR'}
                     </Button>
                   </div>
@@ -772,10 +838,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       {/* ==================== EDIT PET DETAILS MODAL ==================== */}
       {editingPet && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h2 className="text-lg font-extrabold text-white">Edit {editingPet.name}&apos;s Details</h2>
+              <h2 className="text-lg font-black text-white">Edit {editingPet.name}&apos;s Details</h2>
               <button onClick={() => setEditingPet(null)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
@@ -803,7 +869,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Color & Weight</label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Weight</label>
                   <input
                     type="text"
                     value={editFormData.weight || ''}
@@ -837,7 +903,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 <Button type="button" variant="secondary" onClick={() => setEditingPet(null)} className="text-xs py-2">
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary" className="text-xs font-bold py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
+                <Button type="submit" variant="primary" className="text-xs font-black py-2 bg-amber-500 hover:bg-amber-600 text-slate-950">
                   Save Details
                 </Button>
               </div>
@@ -848,12 +914,12 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       {/* ==================== MANAGE VACCINATIONS MODAL ==================== */}
       {vaccinationPet && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-950 text-slate-100 border border-slate-800 rounded-3xl p-6 max-w-xl w-full space-y-4 shadow-2xl animate-fadeIn">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Syringe className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-lg font-extrabold text-white">Manage Vaccinations for {vaccinationPet.name}</h2>
+                <h2 className="text-lg font-black text-white">Manage Vaccinations for {vaccinationPet.name}</h2>
               </div>
               <button onClick={() => setVaccinationPet(null)} className="text-slate-400 hover:text-white p-1">
                 <X className="w-5 h-5" />
@@ -861,7 +927,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
             </div>
 
             {/* Existing Vaccinations List */}
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
               <span className="text-[11px] font-bold text-slate-400 uppercase block">Current Records ({vaccinationPet.vaccinations?.length || 0})</span>
               {(vaccinationPet.vaccinations || []).map((vac: any) => (
                 <div key={vac.id} className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
@@ -886,7 +952,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
             {/* Add New Vaccine Form */}
             <form onSubmit={handleAddVaccinationSubmit} className="pt-3 border-t border-slate-800 space-y-2.5">
-              <span className="text-[11px] font-bold text-amber-500 uppercase block">➕ Add New Vaccine</span>
+              <span className="text-[11px] font-bold text-amber-400 uppercase block">➕ Add New Vaccine Record</span>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Vaccine Name</label>
@@ -915,7 +981,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 <Button type="button" variant="secondary" onClick={() => setVaccinationPet(null)} className="text-xs py-2">
                   Done
                 </Button>
-                <Button type="submit" variant="primary" className="text-xs font-bold py-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button type="submit" variant="primary" className="text-xs font-black py-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md">
                   Add Vaccine
                 </Button>
               </div>
