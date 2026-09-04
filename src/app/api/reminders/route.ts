@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getPetById, addReminderToStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,38 +11,21 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'petId required' }, { status: 400 });
   }
 
-  const reminders = await db.reminder.findMany({
-    where: { petId },
-    orderBy: { date: 'asc' },
-  });
-
-  return NextResponse.json({ reminders });
+  const pet = getPetById(petId);
+  return NextResponse.json({ reminders: pet?.reminders || [] });
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const data = await req.json();
-    const reminder = await db.reminder.create({
-      data: {
-        petId: data.petId,
-        title: data.title,
-        category: data.category,
-        date: new Date(data.date),
-        time: data.time || '09:00 AM',
-        repeat: data.repeat || 'ONCE',
-        notes: data.notes,
-        isCompleted: false,
-      },
-    });
+    if (!data.petId || !data.title) {
+      return NextResponse.json({ error: 'petId and title required' }, { status: 400 });
+    }
 
-    return NextResponse.json({ reminder });
+    const reminder = addReminderToStore(data.petId, data);
+    return NextResponse.json({ success: true, reminder });
   } catch (err) {
     console.error('Reminder create error:', err);
-    return NextResponse.json({ error: 'Failed to create reminder' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create reminder record' }, { status: 500 });
   }
 }

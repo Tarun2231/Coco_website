@@ -1,5 +1,5 @@
 // Vercel Serverless In-Memory Data Store for Puppy ID
-// Stores all puppies, vaccinations, and QR details with zero external database dependencies.
+// Stores all puppies, vaccinations, expenses, reminders, and QR details with zero external database dependencies.
 
 export interface VaccinationRecord {
   id: string;
@@ -12,6 +12,29 @@ export interface VaccinationRecord {
   batchNo?: string;
   notes?: string;
   status: 'COMPLETED' | 'UPCOMING' | 'OVERDUE';
+}
+
+export interface ExpenseRecord {
+  id: string;
+  petId: string;
+  category: string;
+  description: string;
+  amount: number;
+  currency: string;
+  date: string;
+  vendor?: string;
+}
+
+export interface ReminderRecord {
+  id: string;
+  petId: string;
+  category: string;
+  title: string;
+  date: string;
+  time?: string;
+  repeat?: string;
+  notes?: string;
+  isCompleted: boolean;
 }
 
 export interface PetRecord {
@@ -46,8 +69,8 @@ export interface PetRecord {
   };
   privacySetting?: Record<string, boolean>;
   vaccinations: VaccinationRecord[];
-  expenses?: any[];
-  reminders?: any[];
+  expenses: ExpenseRecord[];
+  reminders: ReminderRecord[];
   qrCode?: {
     qrCodeUrl: string;
     scanCount: number;
@@ -108,6 +131,15 @@ const initialPets: PetRecord[] = [
       { id: 'v3', petId: 'bruno-id', vaccineName: 'Annual Booster Shot', dateAdministered: '2026-04-10', nextDueDate: '2026-08-29', vetName: 'Dr. Anita Rao', clinic: 'Apollo Vet Hospital', status: 'UPCOMING', notes: 'Scheduled annual immunity booster' },
       { id: 'v4', petId: 'bruno-id', vaccineName: 'Bordetella Kennel Cough', dateAdministered: '2026-04-10', nextDueDate: '2027-04-10', vetName: 'Dr. Anita Rao', clinic: 'Apollo Vet Hospital', status: 'COMPLETED', notes: 'Oral Bordetella vaccine' },
     ],
+    expenses: [
+      { id: 'e1', petId: 'bruno-id', category: 'Food', description: 'Royal Canin Maxi Adult (15kg)', amount: 2450, currency: '₹', date: '2026-04-12', vendor: 'PetSupermarket Hyderabad' },
+      { id: 'e2', petId: 'bruno-id', category: 'Vet', description: 'Routine Checkup & Ear Cleaning', amount: 1200, currency: '₹', date: '2026-04-08', vendor: 'Banjara Vet Hospital' },
+      { id: 'e3', petId: 'bruno-id', category: 'Accessories', description: 'Puppy ID Engraved Collar Tag', amount: 1450, currency: '₹', date: '2026-02-20', vendor: 'Puppy ID Store' },
+    ],
+    reminders: [
+      { id: 'r1', petId: 'bruno-id', category: 'Vaccination', title: 'Annual Booster Vaccination', date: '2026-08-29', time: '10:00 AM', repeat: 'ONCE', notes: 'Visit Dr. Anita Rao at Apollo Vet Hospital', isCompleted: false },
+      { id: 'r2', petId: 'bruno-id', category: 'Deworming', title: 'Deworming Tablet', date: '2026-09-08', time: '08:30 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give Drontal Plus with breakfast food', isCompleted: false },
+    ],
     qrCode: {
       qrCodeUrl: 'https://coco-website-ten.vercel.app/pet/bruno',
       scanCount: 27,
@@ -140,6 +172,12 @@ const initialPets: PetRecord[] = [
       { id: 'v5', petId: 'coco-id', vaccineName: 'DHPP Vaccine', dateAdministered: '2026-02-14', nextDueDate: '2027-02-14', vetName: 'Dr. Anita Rao', clinic: 'Paw Care Clinic', status: 'COMPLETED' },
       { id: 'v6', petId: 'coco-id', vaccineName: 'Rabies Booster', dateAdministered: '2026-02-14', nextDueDate: '2027-02-14', vetName: 'Dr. Anita Rao', clinic: 'Paw Care Clinic', status: 'COMPLETED' },
     ],
+    expenses: [
+      { id: 'e4', petId: 'coco-id', category: 'Grooming', description: 'Full Spa & De-shedding Grooming', amount: 1800, currency: '₹', date: '2026-03-01', vendor: 'Paws Spa' },
+    ],
+    reminders: [
+      { id: 'r3', petId: 'coco-id', category: 'Flea Care', title: 'Flea & Tick Spot-On', date: '2026-09-15', time: '07:00 PM', repeat: 'MONTHLY', notes: 'Apply Bravecto spot-on', isCompleted: false },
+    ],
     qrCode: {
       qrCodeUrl: 'https://coco-website-ten.vercel.app/pet/coco',
       scanCount: 8,
@@ -171,6 +209,8 @@ const initialPets: PetRecord[] = [
     vaccinations: [
       { id: 'v7', petId: 'max-id', vaccineName: 'Rabies Anti-Rabies Vaccine', dateAdministered: '2026-01-10', nextDueDate: '2027-01-10', vetName: 'Dr. Rahul Verma', clinic: 'Banjara Vet Hospital', status: 'COMPLETED' },
     ],
+    expenses: [],
+    reminders: [],
     qrCode: {
       qrCodeUrl: 'https://coco-website-ten.vercel.app/pet/max',
       scanCount: 14,
@@ -288,4 +328,45 @@ export function updateVaccinationInStore(petId: string, vacId: string, updates: 
     }
   }
   return undefined;
+}
+
+export function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): ExpenseRecord {
+  const pet = getPetById(petId);
+  const newExp: ExpenseRecord = {
+    id: expData.id || `exp-${Date.now()}`,
+    petId: pet?.id || petId,
+    category: expData.category || 'Food',
+    description: expData.description || 'Pet Food & Supplies',
+    amount: Number(expData.amount || 0),
+    currency: expData.currency || '₹',
+    date: expData.date || new Date().toISOString().split('T')[0],
+    vendor: expData.vendor || 'Pet Store',
+  };
+
+  if (pet) {
+    if (!pet.expenses) pet.expenses = [];
+    pet.expenses.unshift(newExp);
+  }
+  return newExp;
+}
+
+export function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): ReminderRecord {
+  const pet = getPetById(petId);
+  const newRem: ReminderRecord = {
+    id: remData.id || `rem-${Date.now()}`,
+    petId: pet?.id || petId,
+    category: remData.category || 'Care',
+    title: remData.title || 'Scheduled Care Alert',
+    date: remData.date || new Date().toISOString().split('T')[0],
+    time: remData.time || '09:00 AM',
+    repeat: remData.repeat || 'ONCE',
+    notes: remData.notes,
+    isCompleted: !!remData.isCompleted,
+  };
+
+  if (pet) {
+    if (!pet.reminders) pet.reminders = [];
+    pet.reminders.unshift(newRem);
+  }
+  return newRem;
 }
