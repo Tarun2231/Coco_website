@@ -63,7 +63,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       const res = await fetch('/api/pets', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.pets)) {
+        if (Array.isArray(data.pets) && data.pets.length > 0) {
           setPets(data.pets);
           if (typeof window !== 'undefined') {
             localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
@@ -379,7 +379,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit Add Vaccination (WITH INSTANT PERSISTENCE & CLOSE SAVE)
+  // Submit Add Vaccination (WITH BULLETPROOF PERSISTENCE & CLOUD SYNC)
   const handleAddVaccinationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = vaccinationPet || managePet;
@@ -391,25 +391,28 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       ...newVac,
     };
 
+    let updatedTargetPet: any = null;
+
     setPets((prev) =>
       prev.map((p) => {
-        if (p.id === targetPet.id) {
+        if (p.id === targetPet.id || p.publicId === targetPet.publicId) {
           const currentVacs = p.vaccinations || [];
-          return { ...p, vaccinations: [newVacItem, ...currentVacs] };
+          updatedTargetPet = { ...p, vaccinations: [newVacItem, ...currentVacs] };
+          return updatedTargetPet;
         }
         return p;
       })
     );
 
-    if (managePet && managePet.id === targetPet.id) {
+    if (managePet && (managePet.id === targetPet.id || managePet.publicId === targetPet.publicId)) {
       setManagePet((prev: any) => ({
         ...prev,
         vaccinations: [newVacItem, ...(prev.vaccinations || [])],
       }));
     }
 
-    setSaveNotice('Vaccine record saved successfully!');
-    setTimeout(() => setSaveNotice(null), 3000);
+    setSaveNotice('✅ Vaccination Record Saved Successfully!');
+    setTimeout(() => setSaveNotice(null), 3500);
 
     setNewVac({
       vaccineName: 'Rabies Anti-Rabies Vaccine',
@@ -426,6 +429,15 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newVacItem),
       });
+
+      if (updatedTargetPet) {
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedTargetPet),
+        });
+      }
+
       syncServerPets();
     } catch (err) {
       console.error('Failed to add vaccination:', err);
@@ -445,16 +457,19 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       amount: Number(newExp.amount),
     };
 
+    let updatedTargetPet: any = null;
+
     setPets((prev) =>
       prev.map((p) => {
-        if (p.id === targetPet.id) {
+        if (p.id === targetPet.id || p.publicId === targetPet.publicId) {
           const currentExps = p.expenses || [];
-          return { ...p, expenses: [newExpItem, ...currentExps] };
+          updatedTargetPet = { ...p, expenses: [newExpItem, ...currentExps] };
+          return updatedTargetPet;
         }
         return p;
       })
     );
-    if (managePet && managePet.id === targetPet.id) {
+    if (managePet && (managePet.id === targetPet.id || managePet.publicId === targetPet.publicId)) {
       setManagePet((prev: any) => ({
         ...prev,
         expenses: [newExpItem, ...(prev.expenses || [])],
@@ -469,13 +484,22 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newExpItem),
       });
+
+      if (updatedTargetPet) {
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedTargetPet),
+        });
+      }
+
       syncServerPets();
     } catch (err) {
       console.error('Failed to add expense:', err);
     }
   };
 
-  // Submit Add Reminder (FULLY WORKING SAVE HANDLER)
+  // Submit Add Reminder (BULLETPROOF REMINDER SAVE)
   const handleAddReminderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = reminderPet || managePet;
@@ -488,27 +512,28 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       isCompleted: false,
     };
 
-    // Update global React state & LocalStorage
+    let updatedTargetPet: any = null;
+
     setPets((prev) =>
       prev.map((p) => {
-        if (p.id === targetPet.id) {
+        if (p.id === targetPet.id || p.publicId === targetPet.publicId) {
           const currentRems = p.reminders || [];
-          return { ...p, reminders: [newRemItem, ...currentRems] };
+          updatedTargetPet = { ...p, reminders: [newRemItem, ...currentRems] };
+          return updatedTargetPet;
         }
         return p;
       })
     );
 
-    // Update modal state so user sees reminder added immediately
-    if (managePet && managePet.id === targetPet.id) {
+    if (managePet && (managePet.id === targetPet.id || managePet.publicId === targetPet.publicId)) {
       setManagePet((prev: any) => ({
         ...prev,
         reminders: [newRemItem, ...(prev.reminders || [])],
       }));
     }
 
-    setSaveNotice('Care reminder saved successfully!');
-    setTimeout(() => setSaveNotice(null), 3000);
+    setSaveNotice('✅ Care Reminder Saved Successfully!');
+    setTimeout(() => setSaveNotice(null), 3500);
 
     setReminderPet(null);
     setNewRem({ category: 'Care', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
@@ -519,6 +544,15 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newRemItem),
       });
+
+      if (updatedTargetPet) {
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedTargetPet),
+        });
+      }
+
       syncServerPets();
     } catch (err) {
       console.error('Failed to add reminder:', err);
@@ -795,7 +829,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         </div>
       )}
 
-      {/* Puppy Registry Cards Grid (CLEAN ROYAL BLUE QR DESIGNS) */}
+      {/* Puppy Registry Cards Grid (STRICTLY ROYAL BLUE QR CODES ONLY) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
         {filteredPets.map((pet) => {
           const publicUrl = getPetPublicUrl(pet.publicId);
@@ -851,14 +885,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Unique High-Contrast Printable QR Code Container (Strictly Royal Blue #2563EB Accent) */}
+                {/* Unique High-Contrast Printable QR Code Container (Strictly Royal Blue #2563EB Only) */}
                 <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-blue-100/90">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
                     size={130}
                     bgColor={'#ffffff'}
-                    fgColor={qrFgColor}
+                    fgColor={'#2563EB'}
                     level={'H'}
                     includeMargin={true}
                   />
@@ -1068,6 +1102,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                       </select>
                     </div>
                   ))}
+                  {(!managePet.vaccinations || managePet.vaccinations.length === 0) && (
+                    <p className="text-xs text-slate-400 text-center py-2">No vaccination records added yet. Fill below to save.</p>
+                  )}
                 </div>
                 <form onSubmit={handleAddVaccinationSubmit} className="pt-3 border-t border-slate-100 space-y-2.5">
                   <span className="text-[11px] font-bold text-emerald-700 uppercase block">➕ Add & Save Vaccine Record</span>
@@ -1107,7 +1144,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 4: Reminders (FIXED WORKING REMINDER SAVE FORM & ACTIVE LIST) */}
+            {/* Tab 4: Reminders */}
             {manageTab === 'REMINDERS' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
                 <div className="space-y-2 max-h-48 overflow-y-auto">
