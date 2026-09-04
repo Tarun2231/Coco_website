@@ -1,5 +1,5 @@
-// Vercel Serverless In-Memory Data Store for Puppy ID
-// Stores all puppies, vaccinations, expenses, reminders, and QR details with zero external database dependencies.
+// Vercel Serverless & Cloud Persistent Data Store for Puppy ID
+// Uses cloud storage (api.restful-api.dev) for 100% cross-device persistence between mobile & laptop.
 
 export interface VaccinationRecord {
   id: string;
@@ -77,21 +77,55 @@ export interface PetRecord {
   };
 }
 
-// Clean production state - zero sample pets
-const initialPets: PetRecord[] = [];
+const CLOUD_OBJECT_ID = 'ff808181a067127101a06d588f79124f';
+const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
 
 const globalForStore = globalThis as unknown as {
   petsStore: PetRecord[] | undefined;
 };
 
 if (!globalForStore.petsStore) {
-  globalForStore.petsStore = initialPets;
+  globalForStore.petsStore = [];
 }
 
 export const petsStore = globalForStore.petsStore;
 
+// Sync from Cloud Store
+export async function syncFromCloudStore(): Promise<PetRecord[]> {
+  try {
+    const res = await fetch(CLOUD_API_URL, { cache: 'no-store' });
+    if (res.ok) {
+      const body = await res.json();
+      if (body?.data?.pets && Array.isArray(body.data.pets)) {
+        globalForStore.petsStore = body.data.pets;
+        return body.data.pets;
+      }
+    }
+  } catch (err) {
+    console.error('Cloud store sync GET error:', err);
+  }
+  return globalForStore.petsStore || [];
+}
+
+// Push to Cloud Store
+export async function saveToCloudStore(pets: PetRecord[]): Promise<void> {
+  try {
+    globalForStore.petsStore = pets;
+    await fetch(CLOUD_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Puppy ID Store',
+        data: { pets },
+      }),
+    });
+  } catch (err) {
+    console.error('Cloud store sync PUT error:', err);
+  }
+}
+
 export function getAllPets(): PetRecord[] {
-  return globalForStore.petsStore || initialPets;
+  return globalForStore.petsStore || [];
 }
 
 export function getPetById(idOrPublicId: string): PetRecord | undefined {
@@ -115,9 +149,9 @@ export function addPetToStore(data: Partial<PetRecord>): PetRecord {
     dob: data.dob || '2025-05-15',
     color: data.color || 'Golden',
     weight: data.weight || '28 kg',
-    microchipId: data.microchipId || `988 000 ${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`,
-    registrationNo: data.registrationNo || `PET-HYD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-    licenseNo: data.licenseNo || `LIC-${Math.floor(10000 + Math.random() * 90000)}-A`,
+    microchipId: data.microchipId || '',
+    registrationNo: data.registrationNo || '',
+    licenseNo: data.licenseNo || '',
     photo: data.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
     importantNotes: data.importantNotes || 'Friendly puppy.',
     isLost: data.isLost ?? false,
@@ -142,7 +176,15 @@ export function addPetToStore(data: Partial<PetRecord>): PetRecord {
     },
   };
 
-  globalForStore.petsStore?.unshift(newPet);
+  const currentPets = getAllPets();
+  const existingIdx = currentPets.findIndex((p) => p.id === newPet.id || p.publicId === newPet.publicId);
+  if (existingIdx === -1) {
+    currentPets.unshift(newPet);
+  } else {
+    currentPets[existingIdx] = newPet;
+  }
+
+  saveToCloudStore(currentPets).catch(console.error);
   return newPet;
 }
 
@@ -151,18 +193,19 @@ export function updatePetInStore(petId: string, updates: Partial<PetRecord>): Pe
   const index = all.findIndex((p) => p.id === petId || p.publicId === petId);
   if (index !== -1) {
     all[index] = { ...all[index], ...updates };
+    saveToCloudStore(all).catch(console.error);
     return all[index];
   }
   return undefined;
 }
 
 export function deletePetFromStore(petId: string): boolean {
-  if (globalForStore.petsStore) {
-    const idx = globalForStore.petsStore.findIndex((p) => p.id === petId || p.publicId === petId);
-    if (idx !== -1) {
-      globalForStore.petsStore.splice(idx, 1);
-      return true;
-    }
+  const current = getAllPets();
+  const idx = current.findIndex((p) => p.id === petId || p.publicId === petId);
+  if (idx !== -1) {
+    current.splice(idx, 1);
+    saveToCloudStore(current).catch(console.error);
+    return true;
   }
   return false;
 }
@@ -187,6 +230,7 @@ export function addVaccinationToStore(petId: string, vacData: Partial<Vaccinatio
 
   if (pet) {
     pet.vaccinations.unshift(newVac);
+    saveToCloudStore(getAllPets()).catch(console.error);
   }
   return newVac;
 }
@@ -197,6 +241,7 @@ export function updateVaccinationInStore(petId: string, vacId: string, updates: 
     const idx = pet.vaccinations.findIndex((v) => v.id === vacId);
     if (idx !== -1) {
       pet.vaccinations[idx] = { ...pet.vaccinations[idx], ...updates };
+      saveToCloudStore(getAllPets()).catch(console.error);
       return pet.vaccinations[idx];
     }
   }
@@ -219,6 +264,7 @@ export function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>
   if (pet) {
     if (!pet.expenses) pet.expenses = [];
     pet.expenses.unshift(newExp);
+    saveToCloudStore(getAllPets()).catch(console.error);
   }
   return newExp;
 }
@@ -240,6 +286,7 @@ export function addReminderToStore(petId: string, remData: Partial<ReminderRecor
   if (pet) {
     if (!pet.reminders) pet.reminders = [];
     pet.reminders.unshift(newRem);
+    saveToCloudStore(getAllPets()).catch(console.error);
   }
   return newRem;
 }
