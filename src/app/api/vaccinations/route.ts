@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getPetById, addVaccinationToStore, updateVaccinationInStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,40 +11,36 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'petId required' }, { status: 400 });
   }
 
-  const vaccinations = await db.vaccination.findMany({
-    where: { petId },
-    orderBy: { dateAdministered: 'desc' },
-  });
-
-  return NextResponse.json({ vaccinations });
+  const pet = getPetById(petId);
+  return NextResponse.json({ vaccinations: pet?.vaccinations || [] });
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const data = await req.json();
-    const vaccination = await db.vaccination.create({
-      data: {
-        petId: data.petId,
-        vaccineName: data.vaccineName,
-        dateAdministered: new Date(data.dateAdministered),
-        nextDueDate: data.nextDueDate ? new Date(data.nextDueDate) : null,
-        vetName: data.vetName,
-        clinic: data.clinic,
-        batchNo: data.batchNo,
-        notes: data.notes,
-        certificateUrl: data.certificateUrl,
-        status: data.status || 'COMPLETED',
-      },
-    });
+    if (!data.petId || !data.vaccineName) {
+      return NextResponse.json({ error: 'petId and vaccineName required' }, { status: 400 });
+    }
 
-    return NextResponse.json({ vaccination });
+    const vaccination = addVaccinationToStore(data.petId, data);
+    return NextResponse.json({ success: true, vaccination });
   } catch (err) {
     console.error('Vaccination create error:', err);
     return NextResponse.json({ error: 'Failed to create vaccination record' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const data = await req.json();
+    if (!data.petId || !data.id) {
+      return NextResponse.json({ error: 'petId and id required' }, { status: 400 });
+    }
+
+    const updated = updateVaccinationInStore(data.petId, data.id, data);
+    return NextResponse.json({ success: true, vaccination: updated });
+  } catch (err) {
+    console.error('Vaccination update error:', err);
+    return NextResponse.json({ error: 'Failed to update vaccination record' }, { status: 500 });
   }
 }
