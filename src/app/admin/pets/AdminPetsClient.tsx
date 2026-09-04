@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Download,
@@ -25,6 +25,7 @@ import {
   Paperclip,
   Trash2,
   SlidersHorizontal,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -35,7 +36,7 @@ interface AdminPetsClientProps {
 }
 
 export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets }) => {
-  // Permanent Client-Side LocalStorage Persistence across browser refreshes & reloads
+  // Permanent Client-Side LocalStorage Persistence
   const [pets, setPets] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('puppy_id_pets');
@@ -50,6 +51,50 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
     return initialPets;
   });
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Cross-device sync fetcher: Merges server store with local storage
+  const syncServerPets = useCallback(async () => {
+    try {
+      setIsSyncing(true);
+      const res = await fetch('/api/pets', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.pets)) {
+          setPets((prevLocal) => {
+            const petMap = new Map();
+            // Server pets take priority
+            data.pets.forEach((p: any) => petMap.set(p.id, p));
+            // Add any local pets not yet on server
+            prevLocal.forEach((p: any) => {
+              if (!petMap.has(p.id)) {
+                petMap.set(p.id, p);
+              }
+            });
+            const merged = Array.from(petMap.values());
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
+            }
+            return merged;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to sync server pets:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Sync on mount & on window focus (so mobile additions show up on laptop immediately)
+  useEffect(() => {
+    syncServerPets();
+
+    const handleFocus = () => syncServerPets();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [syncServerPets]);
 
   // Keep localStorage updated on every state mutation
   useEffect(() => {
@@ -249,9 +294,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         dob: newPetData.dob || '2025-05-15',
         color: newPetData.color || 'Golden',
         weight: newPetData.weight || '28 kg',
-        microchipId: newPetData.microchipId || `988 000 ${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`,
-        registrationNo: newPetData.registrationNo || `PET-HYD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        licenseNo: newPetData.licenseNo || `LIC-${Math.floor(10000 + Math.random() * 90000)}-A`,
+        microchipId: newPetData.microchipId || '',
+        registrationNo: newPetData.registrationNo || '',
+        licenseNo: newPetData.licenseNo || '',
         photo: newPetData.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
         importantNotes: newPetData.importantNotes || 'Friendly puppy.',
         isLost: false,
@@ -273,7 +318,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       // Add to React State immediately & trigger localStorage save
       setPets((prev) => [newPet, ...prev]);
 
-      // Call API asynchronously to sync with server store
+      // Call API to store on server so other devices (laptop/mobile) can fetch it!
       fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -562,26 +607,38 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>Puppy ID Studio Registry (Live Persistent Storage)</span>
+              <span>Puppy ID Studio Registry (Cross-Device Sync)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Multi-Puppy Management & QR Code Tag Studio
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl leading-relaxed">
-              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets. Data is permanently saved.
+              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets. Data syncs across mobile & desktop.
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              setStep(1);
-              setIsAddModalOpen(true);
-            }}
-            className="w-full sm:w-auto font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-6 py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
-          >
-            <Plus className="w-4 h-4 text-brand-coral" />
-            <span>➕ Add New Puppy (Step-by-Step)</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => syncServerPets()}
+              disabled={isSyncing}
+              title="Sync Mobile & Desktop Pets"
+              className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-coral' : 'text-slate-500'}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Devices'}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setStep(1);
+                setIsAddModalOpen(true);
+              }}
+              className="w-full sm:w-auto font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-6 py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
+            >
+              <Plus className="w-4 h-4 text-brand-coral" />
+              <span>➕ Add New Puppy (Step-by-Step)</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -677,7 +734,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           <div className="space-y-1">
             <h3 className="text-xl font-extrabold text-slate-800">Welcome to Puppy ID Studio!</h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
-              Your registry is currently empty. Click below to add your first puppy. All puppy details and QR codes are permanently saved in your browser so refreshing will never delete your data.
+              Your registry is currently empty. Click below to add your first puppy. All puppy details and QR codes sync across mobile & desktop.
             </p>
           </div>
           <button
@@ -800,7 +857,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Microchip ID:</span>
-                    <span className="font-mono font-bold text-slate-800">{pet.microchipId || '988 000 123 456 789'}</span>
+                    <span className="font-mono font-bold text-slate-800">{pet.microchipId || 'None (Add Later)'}</span>
                   </div>
                   <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/80">
                     <span className="text-slate-500 font-medium">Vaccines & Care:</span>
@@ -1288,57 +1345,85 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
               )}
 
-              {/* Step 2: ID Tags */}
+              {/* Step 2: ID Tags (WITH "ADD LATER" OPTION) */}
               {step === 2 && (
                 <div className="space-y-3 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase">Pet Identification Tags (Optional)</span>
+                    <button
+                      type="button"
+                      onClick={() => setStep(3)}
+                      className="text-xs text-brand-coral font-bold hover:underline"
+                    >
+                      ⏭️ Skip / Add ID Tags Later
+                    </button>
+                  </div>
+
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Microchip ID</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Microchip ID (Optional)</label>
                     <input
                       type="text"
                       value={newPetData.microchipId}
                       onChange={(e) => setNewPetData({ ...newPetData, microchipId: e.target.value })}
-                      placeholder="e.g. 988 000 123 456 789"
+                      placeholder="e.g. 988 000 123 456 789 (or leave blank)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-coral bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Pet Registration Number</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Pet Registration Number (Optional)</label>
                     <input
                       type="text"
                       value={newPetData.registrationNo}
                       onChange={(e) => setNewPetData({ ...newPetData, registrationNo: e.target.value })}
-                      placeholder="e.g. PET-HYD-2026-001"
+                      placeholder="e.g. PET-HYD-2026-001 (or leave blank)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-coral bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Municipal License Number</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Municipal License Number (Optional)</label>
                     <input
                       type="text"
                       value={newPetData.licenseNo}
                       onChange={(e) => setNewPetData({ ...newPetData, licenseNo: e.target.value })}
-                      placeholder="e.g. LIC-99210-A"
+                      placeholder="e.g. LIC-99210-A (or leave blank)"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-coral bg-white"
                     />
                   </div>
 
-                  <div className="flex justify-between gap-2 pt-2">
+                  <div className="flex items-center justify-between gap-2 pt-2">
                     <button type="button" onClick={() => setStep(1)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
                       &larr; Back
                     </button>
-                    <button type="button" onClick={() => setStep(3)} className="px-5 py-2 bg-brand-coral/10 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
-                      Next: Vaccinations &rarr;
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setStep(3)} className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200">
+                        ⏭️ Add Later
+                      </button>
+                      <button type="button" onClick={() => setStep(3)} className="px-5 py-2 bg-brand-coral/10 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
+                        Next: Vaccinations &rarr;
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 3: Initial Vaccinations */}
+              {/* Step 3: Initial Vaccinations (WITH "ADD LATER" OPTION) */}
               {step === 3 && (
                 <div className="space-y-3 animate-fadeIn">
-                  <div className="flex items-center gap-2 text-emerald-700 font-extrabold text-xs mb-1">
-                    <Syringe className="w-4 h-4 text-emerald-600" />
-                    <span>Add Initial Vaccine Record</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-700 font-extrabold text-xs">
+                      <Syringe className="w-4 h-4 text-emerald-600" />
+                      <span>Add Initial Vaccine Record (Optional)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPetData((prev) => ({ ...prev, vaccineName: '' }));
+                        setStep(4);
+                      }}
+                      className="text-xs text-brand-coral font-bold hover:underline"
+                    >
+                      ⏭️ Skip / Add Vaccines Later
+                    </button>
                   </div>
 
                   <div>
@@ -1376,13 +1461,25 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     </div>
                   </div>
 
-                  <div className="flex justify-between gap-2 pt-2">
+                  <div className="flex items-center justify-between gap-2 pt-2">
                     <button type="button" onClick={() => setStep(2)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
                       &larr; Back
                     </button>
-                    <button type="button" onClick={() => setStep(4)} className="px-5 py-2 bg-brand-coral/10 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
-                      Next: Photo & Confirm &rarr;
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPetData((prev) => ({ ...prev, vaccineName: '' }));
+                          setStep(4);
+                        }}
+                        className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200"
+                      >
+                        ⏭️ Add Later
+                      </button>
+                      <button type="button" onClick={() => setStep(4)} className="px-5 py-2 bg-brand-coral/10 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
+                        Next: Photo & Confirm &rarr;
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
