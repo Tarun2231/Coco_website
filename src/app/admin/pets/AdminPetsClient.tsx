@@ -26,6 +26,8 @@ import {
   Trash2,
   SlidersHorizontal,
   RefreshCw,
+  CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -108,8 +110,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const [docPet, setDocPet] = useState<any | null>(null);
   const [deletingPet, setDeletingPet] = useState<any | null>(null);
 
-  // QR Color Customizer state
-  const [qrFgColor, setQrFgColor] = useState('#182232');
+  // Status feedback notices
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  // QR Accent Color fixed strictly to Royal Blue (#2563EB)
+  const qrFgColor = '#2563EB';
 
   // Add Step-by-Step Form state
   const [step, setStep] = useState(1);
@@ -141,7 +146,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Vaccination Form state
   const [newVac, setNewVac] = useState({
-    vaccineName: 'Rabies Vaccine',
+    vaccineName: 'Rabies Anti-Rabies Vaccine',
     dateAdministered: new Date().toISOString().split('T')[0],
     nextDueDate: '',
     vetName: 'Dr. Rahul Verma',
@@ -159,7 +164,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Reminder Form state
   const [newRem, setNewRem] = useState({
-    category: 'Deworming',
+    category: 'Care',
     title: 'Deworming Tablet',
     date: new Date().toISOString().split('T')[0],
     time: '09:00 AM',
@@ -308,10 +313,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         },
       };
 
-      // Add to React State immediately
+      // Add to React State & LocalStorage immediately
       setPets((prev) => [newPet, ...prev]);
 
-      // Call API to store in Cloud Engine so all devices (laptop/mobile) fetch it!
       const res = await fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -375,11 +379,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit Add Vaccination
+  // Submit Add Vaccination (WITH INSTANT PERSISTENCE & CLOSE SAVE)
   const handleAddVaccinationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = vaccinationPet || managePet;
-    if (!targetPet) return;
+    if (!targetPet || !newVac.vaccineName) return;
 
     const newVacItem = {
       id: `vac-${Date.now()}`,
@@ -396,13 +400,19 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         return p;
       })
     );
-    if (managePet) {
-      setManagePet((prev: any) =>
-        prev ? { ...prev, vaccinations: [newVacItem, ...(prev.vaccinations || [])] } : null
-      );
+
+    if (managePet && managePet.id === targetPet.id) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        vaccinations: [newVacItem, ...(prev.vaccinations || [])],
+      }));
     }
+
+    setSaveNotice('Vaccine record saved successfully!');
+    setTimeout(() => setSaveNotice(null), 3000);
+
     setNewVac({
-      vaccineName: 'Rabies Vaccine',
+      vaccineName: 'Rabies Anti-Rabies Vaccine',
       dateAdministered: new Date().toISOString().split('T')[0],
       nextDueDate: '',
       vetName: 'Dr. Rahul Verma',
@@ -444,10 +454,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         return p;
       })
     );
-    if (managePet) {
-      setManagePet((prev: any) =>
-        prev ? { ...prev, expenses: [newExpItem, ...(prev.expenses || [])] } : null
-      );
+    if (managePet && managePet.id === targetPet.id) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        expenses: [newExpItem, ...(prev.expenses || [])],
+      }));
     }
     setExpensePet(null);
     setNewExp({ category: 'Food', description: 'Pet Kibble & Treats', amount: '', vendor: 'Pet Supermarket' });
@@ -464,7 +475,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit Add Reminder
+  // Submit Add Reminder (FULLY WORKING SAVE HANDLER)
   const handleAddReminderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = reminderPet || managePet;
@@ -477,6 +488,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       isCompleted: false,
     };
 
+    // Update global React state & LocalStorage
     setPets((prev) =>
       prev.map((p) => {
         if (p.id === targetPet.id) {
@@ -486,13 +498,20 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         return p;
       })
     );
-    if (managePet) {
-      setManagePet((prev: any) =>
-        prev ? { ...prev, reminders: [newRemItem, ...(prev.reminders || [])] } : null
-      );
+
+    // Update modal state so user sees reminder added immediately
+    if (managePet && managePet.id === targetPet.id) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        reminders: [newRemItem, ...(prev.reminders || [])],
+      }));
     }
+
+    setSaveNotice('Care reminder saved successfully!');
+    setTimeout(() => setSaveNotice(null), 3000);
+
     setReminderPet(null);
-    setNewRem({ category: 'Deworming', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
+    setNewRem({ category: 'Care', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
 
     try {
       await fetch('/api/reminders', {
@@ -503,6 +522,29 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       syncServerPets();
     } catch (err) {
       console.error('Failed to add reminder:', err);
+    }
+  };
+
+  // Toggle Reminder Completion status
+  const handleToggleReminder = (petId: string, remId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === petId) {
+          const updatedRems = (p.reminders || []).map((r: any) =>
+            r.id === remId ? { ...r, isCompleted: !r.isCompleted } : r
+          );
+          return { ...p, reminders: updatedRems };
+        }
+        return p;
+      })
+    );
+    if (managePet && managePet.id === petId) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        reminders: (prev.reminders || []).map((r: any) =>
+          r.id === remId ? { ...r, isCompleted: !r.isCompleted } : r
+        ),
+      }));
     }
   };
 
@@ -523,10 +565,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       })
     );
     setDocPet(null);
-    if (managePet) {
-      setManagePet((prev: any) =>
-        prev ? { ...prev, documents: [docItem, ...(prev.documents || [])] } : null
-      );
+    if (managePet && managePet.id === targetPet.id) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        documents: [docItem, ...(prev.documents || [])],
+      }));
     }
     setNewDoc({ title: 'Vaccination Certificate PDF', type: 'Vaccination Record', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
   };
@@ -752,7 +795,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         </div>
       )}
 
-      {/* Puppy Registry Cards Grid (CLEAN, UNCLUTTERED DESIGNS) */}
+      {/* Puppy Registry Cards Grid (CLEAN ROYAL BLUE QR DESIGNS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
         {filteredPets.map((pet) => {
           const publicUrl = getPetPublicUrl(pet.publicId);
@@ -808,8 +851,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Unique High-Contrast Printable QR Code Container */}
-                <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200/90">
+                {/* Unique High-Contrast Printable QR Code Container (Strictly Royal Blue #2563EB Accent) */}
+                <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-blue-100/90">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
@@ -819,31 +862,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     level={'H'}
                     includeMargin={true}
                   />
-                  <div className="text-[10px] sm:text-[11px] font-mono text-slate-600 mt-2 truncate max-w-full font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                  <div className="text-[10px] sm:text-[11px] font-mono text-blue-900 mt-2 truncate max-w-full font-bold bg-blue-50/80 px-3 py-1 rounded-lg border border-blue-200">
                     /pet/{pet.publicId}
-                  </div>
-
-                  {/* QR Color Accent Customizer Buttons */}
-                  <div className="flex items-center gap-1.5 mt-2.5">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">QR Accent:</span>
-                    {[
-                      { color: '#182232', name: 'Dark' },
-                      { color: '#2563EB', name: 'Royal Blue' },
-                      { color: '#DB2777', name: 'Soft Pink' },
-                      { color: '#059669', name: 'Emerald' },
-                      { color: '#FF6B6B', name: 'Coral' },
-                    ].map((c) => (
-                      <button
-                        key={c.color}
-                        type="button"
-                        onClick={() => setQrFgColor(c.color)}
-                        title={c.name}
-                        style={{ backgroundColor: c.color }}
-                        className={`w-4 h-4 rounded-full border border-white shadow-xs transition-transform hover:scale-125 ${
-                          qrFgColor === c.color ? 'ring-2 ring-slate-800 scale-110' : ''
-                        }`}
-                      />
-                    ))}
                   </div>
                 </div>
 
@@ -932,13 +952,21 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </button>
             </div>
 
+            {/* Notification Banner */}
+            {saveNotice && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>{saveNotice}</span>
+              </div>
+            )}
+
             {/* Tab Header Navigation Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100 text-xs font-extrabold">
               {[
                 { id: 'EDIT', label: '✏️ Edit Info' },
                 { id: 'VACCINES', label: `💉 Vaccines (${managePet.vaccinations?.length || 0})` },
                 { id: 'EXPENSES', label: `💰 Expenses` },
-                { id: 'REMINDERS', label: `🔔 Reminders` },
+                { id: 'REMINDERS', label: `🔔 Reminders (${managePet.reminders?.length || 0})` },
                 { id: 'PASSPORT', label: `📋 Passport` },
                 { id: 'ALERT', label: `📢 Missing Alert` },
                 { id: 'DOCS', label: `📁 Docs Vault` },
@@ -1017,7 +1045,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </form>
             )}
 
-            {/* Tab 2: Vaccinations */}
+            {/* Tab 2: Vaccinations (PERSISTENT VACCINE SAVE FORM) */}
             {manageTab === 'VACCINES' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
                 <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -1042,14 +1070,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   ))}
                 </div>
                 <form onSubmit={handleAddVaccinationSubmit} className="pt-3 border-t border-slate-100 space-y-2.5">
-                  <span className="text-[11px] font-bold text-emerald-700 uppercase block">➕ Add New Vaccine</span>
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase block">➕ Add & Save Vaccine Record</span>
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" required value={newVac.vaccineName} onChange={(e) => setNewVac({ ...newVac, vaccineName: e.target.value })} placeholder="Vaccine Name" className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-                    <input type="date" required value={newVac.dateAdministered} onChange={(e) => setNewVac({ ...newVac, dateAdministered: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                    <input type="text" required value={newVac.vaccineName} onChange={(e) => setNewVac({ ...newVac, vaccineName: e.target.value })} placeholder="Vaccine Name" className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold" />
+                    <input type="date" required value={newVac.dateAdministered} onChange={(e) => setNewVac({ ...newVac, dateAdministered: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold" />
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" className="px-5 py-2 bg-emerald-50 text-emerald-800 font-black text-xs rounded-xl border border-emerald-200">
-                      Add Vaccine
+                    <button type="submit" className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-colors">
+                      💾 Save Vaccine Record
                     </button>
                   </div>
                 </form>
@@ -1079,22 +1107,50 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 4: Reminders */}
+            {/* Tab 4: Reminders (FIXED WORKING REMINDER SAVE FORM & ACTIVE LIST) */}
             {manageTab === 'REMINDERS' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
-                <form onSubmit={handleAddReminderSubmit} className="space-y-3">
-                  <input type="text" required value={newRem.title} onChange={(e) => setNewRem({ ...newRem, title: e.target.value })} placeholder="Reminder Title" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold" />
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(managePet.reminders || []).map((rem: any) => (
+                    <div key={rem.id} className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={rem.isCompleted}
+                          onChange={() => handleToggleReminder(managePet.id, rem.id)}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        />
+                        <div>
+                          <span className={`font-extrabold block ${rem.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                            {rem.title}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-amber-600" />
+                            <span>{rem.date} {rem.time || ''} • Repeat: {rem.repeat || 'ONCE'}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(!managePet.reminders || managePet.reminders.length === 0) && (
+                    <p className="text-xs text-slate-400 text-center py-2">No care reminders set yet. Fill below to save a reminder.</p>
+                  )}
+                </div>
+
+                <form onSubmit={handleAddReminderSubmit} className="pt-3 border-t border-slate-100 space-y-3">
+                  <span className="text-[11px] font-bold text-amber-800 uppercase block">➕ Add Care Reminder</span>
+                  <input type="text" required value={newRem.title} onChange={(e) => setNewRem({ ...newRem, title: e.target.value })} placeholder="e.g. Deworming Tablet / Rabies Booster" className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold bg-white" />
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="date" required value={newRem.date} onChange={(e) => setNewRem({ ...newRem, date: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
-                    <select value={newRem.repeat} onChange={(e) => setNewRem({ ...newRem, repeat: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
+                    <input type="date" required value={newRem.date} onChange={(e) => setNewRem({ ...newRem, date: e.target.value })} className="px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold bg-white" />
+                    <select value={newRem.repeat} onChange={(e) => setNewRem({ ...newRem, repeat: e.target.value })} className="px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold bg-white">
                       <option value="ONCE">ONCE</option>
                       <option value="MONTHLY">MONTHLY</option>
                       <option value="EVERY_3_MONTHS">EVERY 3 MONTHS</option>
                     </select>
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" className="px-5 py-2 bg-amber-50 text-amber-900 font-black text-xs rounded-xl border border-amber-200">
-                      Save Reminder
+                    <button type="submit" className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-xs transition-colors">
+                      🔔 Save Care Reminder
                     </button>
                   </div>
                 </form>
