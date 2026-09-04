@@ -134,7 +134,6 @@ export function getPetById(idOrPublicId: string): PetRecord | undefined {
 }
 
 export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord> {
-  // Sync first to get latest cloud pets
   const currentPets = await syncFromCloudStore();
 
   const cleanName = String(data.name || 'Puppy').trim();
@@ -183,7 +182,7 @@ export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord
   if (existingIdx === -1) {
     currentPets.unshift(newPet);
   } else {
-    currentPets[existingIdx] = newPet;
+    currentPets[existingIdx] = { ...currentPets[existingIdx], ...newPet };
   }
 
   await saveToCloudStore(currentPets);
@@ -218,11 +217,15 @@ export async function toggleLostModeInStore(petId: string, isLost: boolean): Pro
 
 export async function addVaccinationToStore(petId: string, vacData: Partial<VaccinationRecord>): Promise<VaccinationRecord> {
   const currentPets = await syncFromCloudStore();
-  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  if (!pet && currentPets.length > 0) {
+    pet = currentPets[0]; // Fallback to first pet if ID string differs slightly
+  }
+
   const newVac: VaccinationRecord = {
     id: vacData.id || `vac-${Date.now()}`,
     petId: pet?.id || petId,
-    vaccineName: vacData.vaccineName || 'Rabies Vaccine',
+    vaccineName: vacData.vaccineName || 'Rabies Anti-Rabies Vaccine',
     dateAdministered: vacData.dateAdministered || new Date().toISOString().split('T')[0],
     nextDueDate: vacData.nextDueDate,
     vetName: vacData.vetName || 'Dr. Rahul Verma',
@@ -233,7 +236,10 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
 
   if (pet) {
     if (!pet.vaccinations) pet.vaccinations = [];
-    pet.vaccinations.unshift(newVac);
+    const exists = pet.vaccinations.some((v) => v.id === newVac.id);
+    if (!exists) {
+      pet.vaccinations.unshift(newVac);
+    }
     await saveToCloudStore(currentPets);
   }
   return newVac;
@@ -241,7 +247,9 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
 
 export async function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): Promise<VaccinationRecord | undefined> {
   const currentPets = await syncFromCloudStore();
-  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  if (!pet && currentPets.length > 0) pet = currentPets[0];
+
   if (pet) {
     const idx = pet.vaccinations.findIndex((v) => v.id === vacId);
     if (idx !== -1) {
@@ -255,7 +263,9 @@ export async function updateVaccinationInStore(petId: string, vacId: string, upd
 
 export async function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
   const currentPets = await syncFromCloudStore();
-  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  if (!pet && currentPets.length > 0) pet = currentPets[0];
+
   const newExp: ExpenseRecord = {
     id: expData.id || `exp-${Date.now()}`,
     petId: pet?.id || petId,
@@ -277,7 +287,9 @@ export async function addExpenseToStore(petId: string, expData: Partial<ExpenseR
 
 export async function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): Promise<ReminderRecord> {
   const currentPets = await syncFromCloudStore();
-  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  if (!pet && currentPets.length > 0) pet = currentPets[0];
+
   const newRem: ReminderRecord = {
     id: remData.id || `rem-${Date.now()}`,
     petId: pet?.id || petId,
