@@ -23,11 +23,10 @@ import {
   Sparkles,
   Share2,
   Paperclip,
-  CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
-import { Button } from '@/components/ui/Button';
 import { INDIAN_DOG_BREEDS } from '@/lib/breeds';
 
 interface AdminPetsClientProps {
@@ -50,6 +49,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const [passportPet, setPassportPet] = useState<any | null>(null);
   const [broadcastPet, setBroadcastPet] = useState<any | null>(null);
   const [docPet, setDocPet] = useState<any | null>(null);
+  const [deletingPet, setDeletingPet] = useState<any | null>(null);
 
   // QR Color Customizer state
   const [qrFgColor, setQrFgColor] = useState('#182232');
@@ -135,6 +135,18 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       }
     } catch (err) {
       console.error('Failed to toggle lost mode:', err);
+    }
+  };
+
+  // Delete / Remove Pet Handler
+  const handleDeletePet = async () => {
+    if (!deletingPet) return;
+    try {
+      await fetch(`/api/pets/${deletingPet.id}`, { method: 'DELETE' });
+      setPets((prev) => prev.filter((p) => p.id !== deletingPet.id));
+      setDeletingPet(null);
+    } catch (err) {
+      console.error('Failed to delete pet:', err);
     }
   };
 
@@ -476,7 +488,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               Multi-Puppy Management & QR Code Tag Studio
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl leading-relaxed">
-              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders & Lost Mode.
+              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets.
             </p>
           </div>
 
@@ -591,7 +603,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
             <div
               key={pet.id}
               className={`bg-white rounded-3xl p-5 sm:p-6 border flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
-                pet.isLost ? 'border-rose-400 bg-rose-50/20 ring-2 ring-rose-300' : 'border-slate-200/90 shadow-xs'
+                pet.isLost ? 'border-rose-300 bg-rose-50/20 ring-2 ring-rose-200' : 'border-slate-200/90 shadow-xs'
               }`}
             >
               <div>
@@ -622,17 +634,28 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     </div>
                   </div>
 
-                  {/* LOST MODE BUTTON WITH BLINKING / PULSING ANIMATION WHEN ACTIVE */}
-                  <button
-                    onClick={() => toggleLostStatus(pet.id, pet.isLost)}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
-                      pet.isLost
-                        ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
-                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
-                    }`}
-                  >
-                    {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {/* LOST MODE BUTTON WITH BLINKING ANIMATION WHEN ACTIVE */}
+                    <button
+                      onClick={() => toggleLostStatus(pet.id, pet.isLost)}
+                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
+                        pet.isLost
+                          ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
+                      }`}
+                    >
+                      {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
+                    </button>
+
+                    {/* NEW FUNCTIONALITY: DELETE / REMOVE PET BUTTON */}
+                    <button
+                      onClick={() => setDeletingPet(pet)}
+                      title="Remove Pet"
+                      className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Unique High-Contrast Printable QR Code Container */}
@@ -756,7 +779,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* NEW FUNCTIONALITY: Broadcast Alert & Document Vault Buttons */}
+                {/* Broadcast Alert & Document Vault Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setBroadcastPet(pet)}
@@ -794,6 +817,41 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           );
         })}
       </div>
+
+      {/* ==================== DELETE / REMOVE PET CONFIRMATION MODAL ==================== */}
+      {deletingPet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900">Remove {deletingPet.name}?</h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                Are you sure you want to delete <span className="font-bold text-slate-900">{deletingPet.name}</span> ({deletingPet.breed}) from your Puppy ID registry? This action will disable the QR collar tag.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingPet(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePet}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-xl shadow-md transition-colors"
+              >
+                Remove Pet Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================== STEP-BY-STEP ADD PUPPY MODAL ==================== */}
       {isAddModalOpen && (

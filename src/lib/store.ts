@@ -294,6 +294,17 @@ export function updatePetInStore(petId: string, updates: Partial<PetRecord>): Pe
   return undefined;
 }
 
+export function deletePetFromStore(petId: string): boolean {
+  if (globalForStore.petsStore) {
+    const idx = globalForStore.petsStore.findIndex((p) => p.id === petId || p.publicId === petId);
+    if (idx !== -1) {
+      globalForStore.petsStore.splice(idx, 1);
+      return true;
+    }
+  }
+  return false;
+}
+
 export function toggleLostModeInStore(petId: string, isLost: boolean): PetRecord | undefined {
   return updatePetInStore(petId, { isLost });
 }
