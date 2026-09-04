@@ -24,7 +24,7 @@ import {
   Share2,
   Paperclip,
   Trash2,
-  Settings2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -43,6 +43,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [managePet, setManagePet] = useState<any | null>(null);
+  const [manageTab, setManageTab] = useState<string>('EDIT');
   const [editingPet, setEditingPet] = useState<any | null>(null);
   const [vaccinationPet, setVaccinationPet] = useState<any | null>(null);
   const [expensePet, setExpensePet] = useState<any | null>(null);
@@ -146,6 +148,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       await fetch(`/api/pets/${deletingPet.id}`, { method: 'DELETE' });
       setPets((prev) => prev.filter((p) => p.id !== deletingPet.id));
       setDeletingPet(null);
+      setManagePet(null);
     } catch (err) {
       console.error('Failed to delete pet:', err);
     }
@@ -260,10 +263,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Edit Details
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPet) return;
+    if (!editingPet && !managePet) return;
 
+    const targetPet = editingPet || managePet;
     try {
-      const res = await fetch(`/api/pets/${editingPet.id}/lost`, {
+      const res = await fetch(`/api/pets/${targetPet.id}/lost`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData),
@@ -271,9 +275,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       if (res.ok) {
         setPets((prev) =>
-          prev.map((p) => (p.id === editingPet.id ? { ...p, ...editFormData } : p))
+          prev.map((p) => (p.id === targetPet.id ? { ...p, ...editFormData } : p))
         );
         setEditingPet(null);
+        setManagePet(null);
       }
     } catch (err) {
       console.error('Failed to edit pet:', err);
@@ -283,10 +288,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Add Vaccination
   const handleAddVaccinationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vaccinationPet) return;
+    const targetPet = vaccinationPet || managePet;
+    if (!targetPet) return;
 
     try {
-      const payload = { petId: vaccinationPet.id, ...newVac };
+      const payload = { petId: targetPet.id, ...newVac };
       const res = await fetch('/api/vaccinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -297,16 +303,23 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (data.vaccination) {
         setPets((prev) =>
           prev.map((p) => {
-            if (p.id === vaccinationPet.id) {
+            if (p.id === targetPet.id) {
               const currentVacs = p.vaccinations || [];
               return { ...p, vaccinations: [data.vaccination, ...currentVacs] };
             }
             return p;
           })
         );
-        setVaccinationPet((prev: any) =>
-          prev ? { ...prev, vaccinations: [data.vaccination, ...(prev.vaccinations || [])] } : null
-        );
+        if (vaccinationPet) {
+          setVaccinationPet((prev: any) =>
+            prev ? { ...prev, vaccinations: [data.vaccination, ...(prev.vaccinations || [])] } : null
+          );
+        }
+        if (managePet) {
+          setManagePet((prev: any) =>
+            prev ? { ...prev, vaccinations: [data.vaccination, ...(prev.vaccinations || [])] } : null
+          );
+        }
         setNewVac({
           vaccineName: 'Rabies Vaccine',
           dateAdministered: new Date().toISOString().split('T')[0],
@@ -324,10 +337,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Add Expense
   const handleAddExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expensePet || !newExp.amount) return;
+    const targetPet = expensePet || managePet;
+    if (!targetPet || !newExp.amount) return;
 
     try {
-      const payload = { petId: expensePet.id, ...newExp, amount: Number(newExp.amount) };
+      const payload = { petId: targetPet.id, ...newExp, amount: Number(newExp.amount) };
       const res = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,7 +352,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (data.expense) {
         setPets((prev) =>
           prev.map((p) => {
-            if (p.id === expensePet.id) {
+            if (p.id === targetPet.id) {
               const currentExps = p.expenses || [];
               return { ...p, expenses: [data.expense, ...currentExps] };
             }
@@ -346,6 +360,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           })
         );
         setExpensePet(null);
+        if (managePet) {
+          setManagePet((prev: any) =>
+            prev ? { ...prev, expenses: [data.expense, ...(prev.expenses || [])] } : null
+          );
+        }
         setNewExp({ category: 'Food', description: 'Pet Kibble & Treats', amount: '', vendor: 'Pet Supermarket' });
       }
     } catch (err) {
@@ -356,10 +375,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Add Reminder
   const handleAddReminderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reminderPet || !newRem.title) return;
+    const targetPet = reminderPet || managePet;
+    if (!targetPet || !newRem.title) return;
 
     try {
-      const payload = { petId: reminderPet.id, ...newRem };
+      const payload = { petId: targetPet.id, ...newRem };
       const res = await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -370,7 +390,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (data.reminder) {
         setPets((prev) =>
           prev.map((p) => {
-            if (p.id === reminderPet.id) {
+            if (p.id === targetPet.id) {
               const currentRems = p.reminders || [];
               return { ...p, reminders: [data.reminder, ...currentRems] };
             }
@@ -378,6 +398,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           })
         );
         setReminderPet(null);
+        if (managePet) {
+          setManagePet((prev: any) =>
+            prev ? { ...prev, reminders: [data.reminder, ...(prev.reminders || [])] } : null
+          );
+        }
         setNewRem({ category: 'Deworming', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
       }
     } catch (err) {
@@ -388,12 +413,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Document Vault Upload
   const handleAddDocSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!docPet || !newDoc.title) return;
+    const targetPet = docPet || managePet;
+    if (!targetPet || !newDoc.title) return;
 
     const docItem = { id: `doc-${Date.now()}`, ...newDoc, createdAt: new Date().toISOString() };
     setPets((prev) =>
       prev.map((p) => {
-        if (p.id === docPet.id) {
+        if (p.id === targetPet.id) {
           const currentDocs = (p as any).documents || [];
           return { ...p, documents: [docItem, ...currentDocs] };
         }
@@ -401,6 +427,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       })
     );
     setDocPet(null);
+    if (managePet) {
+      setManagePet((prev: any) =>
+        prev ? { ...prev, documents: [docItem, ...(prev.documents || [])] } : null
+      );
+    }
     setNewDoc({ title: 'Vaccination Certificate PDF', type: 'Vaccination Record', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
   };
 
@@ -425,8 +456,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
             return p;
           })
         );
-        if (vaccinationPet && vaccinationPet.id === petId) {
-          setVaccinationPet((prev: any) => ({
+        if (managePet && managePet.id === petId) {
+          setManagePet((prev: any) => ({
             ...prev,
             vaccinations: (prev.vaccinations || []).map((v: any) =>
               v.id === vacId ? { ...v, status: newStatus } : v
@@ -461,8 +492,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   const isMale = newPetData.gender === 'Male';
   const themeBgClass = isMale
-    ? 'bg-blue-50/90 border-blue-200 text-blue-900'
-    : 'bg-pink-50/90 border-pink-200 text-pink-900';
+    ? 'bg-blue-50/90 border-blue-200 text-blue-800'
+    : 'bg-pink-50/90 border-pink-200 text-pink-800';
 
   const steps = [
     { num: 1, label: 'Details', icon: Dog },
@@ -472,23 +503,23 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-7xl animate-fadeIn text-slate-900 px-1 sm:px-0">
+    <div className="space-y-6 sm:space-y-8 max-w-7xl animate-fadeIn text-slate-700 px-1 sm:px-0">
       {/* Hidden File Inputs */}
       <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileUpload} className="hidden" />
       <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
 
       {/* Main Studio Banner Header (Light Aesthetic & Mobile Responsive) */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-white via-cream-50 to-white p-5 sm:p-7 md:p-8 border border-slate-200/90 shadow-sm">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-white via-cream-50 to-white p-5 sm:p-7 md:p-8 border border-slate-200/80 shadow-xs">
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-black uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
               <span>Puppy ID Studio Registry (Light Theme)</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Multi-Puppy Management & QR Code Tag Studio
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl leading-relaxed">
               Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets.
             </p>
           </div>
@@ -498,7 +529,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               setStep(1);
               setIsAddModalOpen(true);
             }}
-            className="w-full sm:w-auto font-black bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-6 py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
+            className="w-full sm:w-auto font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-6 py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
           >
             <Plus className="w-4 h-4 text-brand-coral" />
             <span>➕ Add New Puppy (Step-by-Step)</span>
@@ -510,45 +541,45 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Registered Puppies</span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Registered Puppies</span>
             <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
               <Dog className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900">{totalPuppies}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">{totalPuppies}</div>
           <p className="text-[10px] text-slate-500 font-medium truncate">Digital QR ID tags created</p>
         </div>
 
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Lost Emergencies</span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Lost Emergencies</span>
             <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-rose-600">{lostPuppiesCount}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-rose-600">{lostPuppiesCount}</div>
           <p className="text-[10px] text-slate-500 font-medium truncate">Active emergency alerts</p>
         </div>
 
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Verified Vaccines</span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Verified Vaccines</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <Syringe className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-700">{totalVaccinations}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">{totalVaccinations}</div>
           <p className="text-[10px] text-slate-500 font-medium truncate">Rabies & booster records</p>
         </div>
 
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">QR Code Scans</span>
+            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">QR Code Scans</span>
             <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <QrCode className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900">{totalScans}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">{totalScans}</div>
           <p className="text-[10px] text-slate-500 font-medium truncate">Collar tag scans logged</p>
         </div>
       </div>
@@ -589,22 +620,19 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         </div>
       </div>
 
-      {/* Puppy Registry Cards Grid (Light Aesthetic & Mobile Responsive) */}
+      {/* Puppy Registry Cards Grid (CLEAN, UNCLUTTERED DESIGNS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPets.map((pet) => {
           const publicUrl = getPetPublicUrl(pet.publicId);
           const svgId = `admin-qr-${pet.id}`;
           const isPetMale = pet.gender === 'Male';
           const vacList = pet.vaccinations || [];
-          const expList = pet.expenses || [];
-          const remList = pet.reminders || [];
-          const docList = (pet as any).documents || [];
 
           return (
             <div
               key={pet.id}
               className={`bg-white rounded-3xl p-5 sm:p-6 border flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
-                pet.isLost ? 'border-rose-300 bg-rose-50/20 ring-2 ring-rose-200' : 'border-slate-200/90 shadow-xs'
+                pet.isLost ? 'border-rose-300 bg-rose-50/20 ring-2 ring-rose-200' : 'border-slate-200/80 shadow-xs'
               }`}
             >
               <div>
@@ -620,7 +648,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-black text-slate-900 text-lg sm:text-xl leading-tight">{pet.name}</h3>
+                        <h3 className="font-extrabold text-slate-800 text-lg sm:text-xl leading-tight">{pet.name}</h3>
                         {/* STYLISH BLUE / PINK DOT ACCENT (NO GENDER TEXT) */}
                         <span
                           title={isPetMale ? 'Male' : 'Female'}
@@ -649,7 +677,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
 
                 {/* Unique High-Contrast Printable QR Code Container */}
-                <div className="my-4 p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200">
+                <div className="my-4 p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200/90">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
@@ -659,7 +687,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     level={'H'}
                     includeMargin={true}
                   />
-                  <div className="text-[11px] font-mono text-slate-700 mt-2 truncate max-w-full font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
+                  <div className="text-[11px] font-mono text-slate-600 mt-2 truncate max-w-full font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
                     /pet/{pet.publicId}
                   </div>
 
@@ -680,7 +708,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                         title={c.name}
                         style={{ backgroundColor: c.color }}
                         className={`w-4 h-4 rounded-full border border-white shadow-xs transition-transform hover:scale-125 ${
-                          qrFgColor === c.color ? 'ring-2 ring-slate-900 scale-110' : ''
+                          qrFgColor === c.color ? 'ring-2 ring-slate-800 scale-110' : ''
                         }`}
                       />
                     ))}
@@ -688,18 +716,18 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
 
                 {/* Info Details Grid */}
-                <div className="space-y-2 text-xs text-slate-700 bg-slate-50/70 p-3.5 sm:p-4 rounded-2xl border border-slate-100">
+                <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-3.5 sm:p-4 rounded-2xl border border-slate-100">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Species & Color:</span>
-                    <span className="font-extrabold text-slate-900">{pet.species} • {pet.color || 'Golden'}</span>
+                    <span className="font-extrabold text-slate-800">{pet.species} • {pet.color || 'Golden'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Weight:</span>
-                    <span className="font-extrabold text-slate-900">{pet.weight || '28 kg'}</span>
+                    <span className="font-extrabold text-slate-800">{pet.weight || '28 kg'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Microchip ID:</span>
-                    <span className="font-mono font-bold text-slate-900">{pet.microchipId || '988 000 123 456 789'}</span>
+                    <span className="font-mono font-bold text-slate-800">{pet.microchipId || '988 000 123 456 789'}</span>
                   </div>
                   <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/80">
                     <span className="text-slate-500 font-medium">Vaccines & Care:</span>
@@ -711,20 +739,12 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
               </div>
 
-              {/* CLEAN & ORGANIZED MANAGE SECTION */}
+              {/* SLEEK, MINIMALIST & UNCLUTTERED ACTION BUTTONS */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                    <Settings2 className="w-3 h-3 text-slate-400" />
-                    <span>Manage & Quick Actions</span>
-                  </span>
-                </div>
-
-                {/* Row 1: Edit & Vaccines */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
-                      setEditingPet(pet);
+                      setManagePet(pet);
                       setEditFormData({
                         name: pet.name,
                         breed: pet.breed,
@@ -734,88 +754,25 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                         importantNotes: pet.importantNotes,
                         photo: pet.photo,
                       });
+                      setManageTab('EDIT');
                     }}
-                    className="py-2 px-2 bg-amber-50 hover:bg-amber-100 text-amber-900 font-extrabold text-xs rounded-xl border border-amber-200/90 flex items-center justify-center gap-1.5 transition-colors"
+                    className="py-2.5 px-3 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-extrabold text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Edit Details</span>
+                    <SlidersHorizontal className="w-4 h-4 text-brand-coral" />
+                    <span>Manage Care Hub</span>
                   </button>
 
                   <button
-                    onClick={() => setVaccinationPet(pet)}
-                    className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-extrabold text-xs rounded-xl border border-emerald-200/90 flex items-center justify-center gap-1.5 transition-colors"
+                    onClick={() => downloadQR(pet.name, svgId)}
+                    className="py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 font-extrabold text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <Syringe className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Vaccines ({vacList.length})</span>
+                    <Download className="w-4 h-4 text-blue-600" />
+                    <span>Download QR</span>
                   </button>
                 </div>
-
-                {/* Row 2: Expenses, Reminders, Passport */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    onClick={() => setExpensePet(pet)}
-                    className="py-2 px-1 bg-blue-50 hover:bg-blue-100 text-blue-900 font-extrabold text-[11px] rounded-xl border border-blue-200/90 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <DollarSign className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Expenses</span>
-                  </button>
-
-                  <button
-                    onClick={() => setReminderPet(pet)}
-                    className="py-2 px-1 bg-amber-50/80 hover:bg-amber-100 text-amber-900 font-extrabold text-[11px] rounded-xl border border-amber-200/90 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Bell className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Reminders</span>
-                  </button>
-
-                  <button
-                    onClick={() => setPassportPet(pet)}
-                    className="py-2 px-1 bg-purple-50 hover:bg-purple-100 text-purple-900 font-extrabold text-[11px] rounded-xl border border-purple-200/90 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-purple-600" />
-                    <span>Passport</span>
-                  </button>
-                </div>
-
-                {/* Row 3: Broadcast, Docs Vault, Remove Pet */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    onClick={() => setBroadcastPet(pet)}
-                    className="py-2 px-1 bg-rose-50 hover:bg-rose-100 text-rose-900 font-extrabold text-[11px] rounded-xl border border-rose-200 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Alert</span>
-                  </button>
-
-                  <button
-                    onClick={() => setDocPet(pet)}
-                    className="py-2 px-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-extrabold text-[11px] rounded-xl border border-indigo-200 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Docs ({docList.length})</span>
-                  </button>
-
-                  {/* PROMINENT LIGHT-RED REMOVE PET BUTTON */}
-                  <button
-                    onClick={() => setDeletingPet(pet)}
-                    className="py-2 px-1 bg-rose-50/90 hover:bg-rose-100 text-rose-800 font-black text-[11px] rounded-xl border border-rose-200/90 flex items-center justify-center gap-1 transition-colors shadow-xs"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Remove</span>
-                  </button>
-                </div>
-
-                {/* Row 4: Download QR Tag & Public Link */}
-                <button
-                  onClick={() => downloadQR(pet.name, svgId)}
-                  className="w-full py-2.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <Download className="w-4 h-4 text-brand-coral" />
-                  <span>Download Separate QR PNG</span>
-                </button>
 
                 <Link href={`/pet/${pet.publicId}`} target="_blank" className="block">
-                  <button className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors">
+                  <button className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-semibold text-[11px] rounded-xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors">
                     <span>Preview Public Profile (/pet/{pet.publicId})</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
@@ -826,18 +783,272 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         })}
       </div>
 
+      {/* ==================== SLEEK PET MANAGEMENT HUB MODAL ==================== */}
+      {managePet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-2xl w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <img src={managePet.photo} alt={managePet.name} className="w-10 h-10 rounded-full object-cover border-2 border-brand-coral" />
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-800">Manage {managePet.name}&apos;s Studio</h2>
+                  <p className="text-[11px] text-slate-500 font-medium">{managePet.breed} • {managePet.gender}</p>
+                </div>
+              </div>
+              <button onClick={() => setManagePet(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tab Header Navigation Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100 text-xs font-extrabold">
+              {[
+                { id: 'EDIT', label: '✏️ Edit Info' },
+                { id: 'VACCINES', label: `💉 Vaccines (${managePet.vaccinations?.length || 0})` },
+                { id: 'EXPENSES', label: `💰 Expenses` },
+                { id: 'REMINDERS', label: `🔔 Reminders` },
+                { id: 'PASSPORT', label: `📋 Passport` },
+                { id: 'ALERT', label: `📢 Missing Alert` },
+                { id: 'DOCS', label: `📁 Docs Vault` },
+                { id: 'DELETE', label: `🗑️ Remove Pet` },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setManageTab(t.id)}
+                  className={`px-3 py-2 rounded-xl shrink-0 transition-all ${
+                    manageTab === t.id
+                      ? 'bg-brand-coral/10 text-brand-coral border border-brand-coral/30 shadow-xs font-black'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab 1: Edit Details */}
+            {manageTab === 'EDIT' && (
+              <form onSubmit={handleEditSubmit} className="space-y-3 pt-2 animate-fadeIn">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Pet Name</label>
+                  <input
+                    type="text"
+                    value={editFormData.name || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Breed</label>
+                    <input
+                      type="text"
+                      value={editFormData.breed || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, breed: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Weight</label>
+                    <input
+                      type="text"
+                      value={editFormData.weight || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Microchip ID</label>
+                  <input
+                    type="text"
+                    value={editFormData.microchipId || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, microchipId: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Important Notes</label>
+                  <textarea
+                    rows={2}
+                    value={editFormData.importantNotes || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, importantNotes: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-white"
+                  />
+                </div>
+                <div className="pt-2 flex justify-end">
+                  <button type="submit" className="px-6 py-2.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Tab 2: Vaccinations */}
+            {manageTab === 'VACCINES' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {(managePet.vaccinations || []).map((vac: any) => (
+                    <div key={vac.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-extrabold text-slate-800 block">{vac.vaccineName}</span>
+                        <span className="text-[10px] text-slate-500 font-medium">Given: {vac.dateAdministered} • Vet: {vac.vetName || 'Dr. Verma'}</span>
+                      </div>
+                      <select
+                        value={vac.status}
+                        onChange={(e) => handleUpdateVaccinationStatus(managePet.id, vac.id, e.target.value)}
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-white border ${
+                          vac.status === 'COMPLETED' ? 'text-emerald-800 border-emerald-300 bg-emerald-50' : 'text-amber-800 border-amber-300 bg-amber-50'
+                        }`}
+                      >
+                        <option value="COMPLETED">COMPLETED</option>
+                        <option value="UPCOMING">UPCOMING</option>
+                        <option value="OVERDUE">OVERDUE</option>
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                <form onSubmit={handleAddVaccinationSubmit} className="pt-3 border-t border-slate-100 space-y-2.5">
+                  <span className="text-[11px] font-bold text-emerald-700 uppercase block">➕ Add New Vaccine</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" required value={newVac.vaccineName} onChange={(e) => setNewVac({ ...newVac, vaccineName: e.target.value })} placeholder="Vaccine Name" className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                    <input type="date" required value={newVac.dateAdministered} onChange={(e) => setNewVac({ ...newVac, dateAdministered: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="submit" className="px-5 py-2 bg-emerald-50 text-emerald-800 font-black text-xs rounded-xl border border-emerald-200">
+                      Add Vaccine
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Tab 3: Expenses */}
+            {manageTab === 'EXPENSES' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={newExp.category} onChange={(e) => setNewExp({ ...newExp, category: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
+                      <option value="Food">Food & Kibble</option>
+                      <option value="Vet">Vet Visit</option>
+                      <option value="Grooming">Grooming & Spa</option>
+                      <option value="Accessories">Accessories & Tags</option>
+                    </select>
+                    <input type="number" required value={newExp.amount} onChange={(e) => setNewExp({ ...newExp, amount: e.target.value })} placeholder="Amount (₹)" className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold" />
+                  </div>
+                  <input type="text" value={newExp.description} onChange={(e) => setNewExp({ ...newExp, description: e.target.value })} placeholder="Description" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                  <div className="flex justify-end">
+                    <button type="submit" className="px-5 py-2 bg-blue-50 text-blue-900 font-black text-xs rounded-xl border border-blue-200">
+                      Save Expense
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Tab 4: Reminders */}
+            {manageTab === 'REMINDERS' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <form onSubmit={handleAddReminderSubmit} className="space-y-3">
+                  <input type="text" required value={newRem.title} onChange={(e) => setNewRem({ ...newRem, title: e.target.value })} placeholder="Reminder Title" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" required value={newRem.date} onChange={(e) => setNewRem({ ...newRem, date: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                    <select value={newRem.repeat} onChange={(e) => setNewRem({ ...newRem, repeat: e.target.value })} className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold">
+                      <option value="ONCE">ONCE</option>
+                      <option value="MONTHLY">MONTHLY</option>
+                      <option value="EVERY_3_MONTHS">EVERY 3 MONTHS</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end">
+                    <button type="submit" className="px-5 py-2 bg-amber-50 text-amber-900 font-black text-xs rounded-xl border border-amber-200">
+                      Save Reminder
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Tab 5: Passport */}
+            {manageTab === 'PASSPORT' && (
+              <div className="space-y-3 pt-2 animate-fadeIn text-center">
+                <p className="text-xs text-slate-500">Preview or print the official medical passport for {managePet.name}.</p>
+                <div className="flex justify-center gap-3">
+                  <button type="button" onClick={() => window.print()} className="px-6 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-black text-xs rounded-xl border border-purple-200">
+                    🖨️ Print Passport Document
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 6: Missing Alert */}
+            {manageTab === 'ALERT' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl font-mono text-[11px] text-rose-950 font-bold space-y-1">
+                  <p>🚨 EMERGENCY MISSING PET ALERT 🚨</p>
+                  <p>Name: {managePet.name}</p>
+                  <p>Breed: {managePet.breed}</p>
+                  <p>Scan QR: {getPetPublicUrl(managePet.publicId)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => {
+                    const text = `🚨 EMERGENCY MISSING PET ALERT 🚨\nName: ${managePet.name}\nBreed: ${managePet.breed}\nScan QR: ${getPetPublicUrl(managePet.publicId)}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }} className="flex-1 py-2 bg-emerald-50 text-emerald-800 font-extrabold text-xs rounded-xl border border-emerald-300">
+                    Share to WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 7: Docs Vault */}
+            {manageTab === 'DOCS' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <form onSubmit={handleAddDocSubmit} className="space-y-2">
+                  <input type="text" required value={newDoc.title} onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })} placeholder="Document Title" className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs" />
+                  <div className="flex justify-end">
+                    <button type="submit" className="px-5 py-2 bg-indigo-50 text-indigo-800 font-black text-xs rounded-xl border border-indigo-200">
+                      Save Document
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Tab 8: Delete Pet */}
+            {manageTab === 'DELETE' && (
+              <div className="space-y-3 pt-2 animate-fadeIn text-center">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <p className="text-xs text-slate-600">Are you sure you want to permanently remove {managePet.name} from the registry?</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeletingPet(managePet);
+                  }}
+                  className="px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-xl shadow-md"
+                >
+                  Remove Pet Permanently
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ==================== DELETE / REMOVE PET CONFIRMATION MODAL ==================== */}
       {deletingPet && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn text-center">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn text-center">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-lg font-black text-slate-900">Remove {deletingPet.name}?</h3>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Are you sure you want to delete <span className="font-bold text-slate-900">{deletingPet.name}</span> ({deletingPet.breed}) from your Puppy ID registry? This action will disable the QR collar tag.
+              <h3 className="text-lg font-black text-slate-800">Remove {deletingPet.name}?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                Are you sure you want to delete <span className="font-bold text-slate-800">{deletingPet.name}</span> ({deletingPet.breed}) from your Puppy ID registry? This action will disable the QR collar tag.
               </p>
             </div>
 
@@ -864,14 +1075,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       {/* ==================== STEP-BY-STEP ADD PUPPY MODAL ==================== */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-lg w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-lg w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
                   <Dog className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-black text-slate-900">Add New Puppy Studio</h2>
+                  <h2 className="text-base sm:text-lg font-black text-slate-800">Add New Puppy Studio</h2>
                   <p className="text-[11px] text-slate-500 font-medium">Step {step} of 4</p>
                 </div>
               </div>
@@ -893,7 +1104,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     className={`py-1.5 sm:py-2 px-1 rounded-xl text-[9px] sm:text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
                       isActive
                         ? isMale ? 'bg-blue-600 text-white shadow-xs' : 'bg-pink-500 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                        : 'text-slate-600 hover:text-slate-800 hover:bg-white/60'
                     }`}
                   >
                     <Icon className="w-3 h-3 shrink-0" />
@@ -908,7 +1119,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               {step === 1 && (
                 <div className="space-y-3 animate-fadeIn">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Puppy Name *</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Puppy Name *</label>
                     <input
                       type="text"
                       required
@@ -921,7 +1132,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Species</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Species</label>
                       <select
                         value={newPetData.species}
                         onChange={(e) => setNewPetData({ ...newPetData, species: e.target.value })}
@@ -934,7 +1145,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Gender (Theme Accent) *</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Gender (Theme Accent) *</label>
                       <select
                         value={newPetData.gender}
                         onChange={(e) => setNewPetData({ ...newPetData, gender: e.target.value as any })}
@@ -951,7 +1162,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Dog Breed *</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Dog Breed *</label>
                     <select
                       value={newPetData.breed}
                       onChange={(e) => setNewPetData({ ...newPetData, breed: e.target.value })}
@@ -965,7 +1176,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Color</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Color</label>
                       <input
                         type="text"
                         value={newPetData.color}
@@ -975,7 +1186,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Weight</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Weight</label>
                       <input
                         type="text"
                         value={newPetData.weight}
@@ -1008,7 +1219,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               {step === 2 && (
                 <div className="space-y-3 animate-fadeIn">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Microchip ID</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Microchip ID</label>
                     <input
                       type="text"
                       value={newPetData.microchipId}
@@ -1018,7 +1229,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Pet Registration Number</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Pet Registration Number</label>
                     <input
                       type="text"
                       value={newPetData.registrationNo}
@@ -1028,7 +1239,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Municipal License Number</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Municipal License Number</label>
                     <input
                       type="text"
                       value={newPetData.licenseNo}
@@ -1058,7 +1269,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Vaccine Name</label>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Vaccine Name</label>
                     <select
                       value={newPetData.vaccineName}
                       onChange={(e) => setNewPetData({ ...newPetData, vaccineName: e.target.value })}
@@ -1073,7 +1284,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Date Given</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Date Given</label>
                       <input
                         type="date"
                         value={newPetData.dateAdministered}
@@ -1082,7 +1293,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Next Due Date</label>
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Next Due Date</label>
                       <input
                         type="date"
                         value={newPetData.nextDueDate}
@@ -1106,7 +1317,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               {/* Step 4: Photo & Public Notes */}
               {step === 4 && (
                 <div className="space-y-3.5 animate-fadeIn">
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase">Pet Photo (Upload or Take Photo)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase">Pet Photo (Upload or Take Photo)</label>
                   
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -1150,479 +1361,6 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
               )}
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== EDIT PET DETAILS MODAL ==================== */}
-      {editingPet && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="text-base sm:text-lg font-black text-slate-900">Edit {editingPet.name}&apos;s Details</h2>
-              <button onClick={() => setEditingPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Pet Name</label>
-                <input
-                  type="text"
-                  value={editFormData.name || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Breed</label>
-                  <input
-                    type="text"
-                    value={editFormData.breed || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, breed: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Weight</label>
-                  <input
-                    type="text"
-                    value={editFormData.weight || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Microchip ID</label>
-                <input
-                  type="text"
-                  value={editFormData.microchipId || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, microchipId: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Important Notes</label>
-                <textarea
-                  rows={2}
-                  value={editFormData.importantNotes || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, importantNotes: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-white"
-                />
-              </div>
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button type="button" onClick={() => setEditingPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                  Cancel
-                </button>
-                <button type="submit" className="px-5 py-2 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30">
-                  Save Details
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== MANAGE VACCINATIONS MODAL ==================== */}
-      {vaccinationPet && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-xl w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Syringe className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Manage Vaccinations for {vaccinationPet.name}</h2>
-              </div>
-              <button onClick={() => setVaccinationPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Existing Vaccinations List */}
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase block">Current Records ({vaccinationPet.vaccinations?.length || 0})</span>
-              {(vaccinationPet.vaccinations || []).map((vac: any) => (
-                <div key={vac.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-extrabold text-slate-900 block">{vac.vaccineName}</span>
-                    <span className="text-[10px] text-slate-500 font-medium">Given: {vac.dateAdministered} • Vet: {vac.vetName || 'Dr. Verma'}</span>
-                  </div>
-                  <select
-                    value={vac.status}
-                    onChange={(e) => handleUpdateVaccinationStatus(vaccinationPet.id, vac.id, e.target.value)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-white border ${
-                      vac.status === 'COMPLETED' ? 'text-emerald-800 border-emerald-300 bg-emerald-50' : 'text-amber-800 border-amber-300 bg-amber-50'
-                    }`}
-                  >
-                    <option value="COMPLETED">COMPLETED</option>
-                    <option value="UPCOMING">UPCOMING</option>
-                    <option value="OVERDUE">OVERDUE</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-
-            {/* Add New Vaccine Form */}
-            <form onSubmit={handleAddVaccinationSubmit} className="pt-3 border-t border-slate-100 space-y-2.5">
-              <span className="text-[11px] font-bold text-emerald-700 uppercase block">➕ Add New Vaccine Record</span>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Vaccine Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={newVac.vaccineName}
-                    onChange={(e) => setNewVac({ ...newVac, vaccineName: e.target.value })}
-                    placeholder="Rabies Vaccine"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Date Given</label>
-                  <input
-                    type="date"
-                    required
-                    value={newVac.dateAdministered}
-                    onChange={(e) => setNewVac({ ...newVac, dateAdministered: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button type="button" onClick={() => setVaccinationPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                  Done
-                </button>
-                <button type="submit" className="px-5 py-2 bg-emerald-50 text-emerald-800 font-black text-xs rounded-xl border border-emerald-200 hover:bg-emerald-100">
-                  Add Vaccine
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== EXPENSE MODAL ==================== */}
-      {expensePet && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-blue-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Add Expense for {expensePet.name}</h2>
-              </div>
-              <button onClick={() => setExpensePet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddExpenseSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Category</label>
-                  <select
-                    value={newExp.category}
-                    onChange={(e) => setNewExp({ ...newExp, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold"
-                  >
-                    <option value="Food">Food & Kibble</option>
-                    <option value="Vet">Vet Visit</option>
-                    <option value="Grooming">Grooming & Spa</option>
-                    <option value="Accessories">Accessories & Tags</option>
-                    <option value="Medicine">Medicine & Vitamins</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Amount (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={newExp.amount}
-                    onChange={(e) => setNewExp({ ...newExp, amount: e.target.value })}
-                    placeholder="e.g. 1500"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Description</label>
-                <input
-                  type="text"
-                  value={newExp.description}
-                  onChange={(e) => setNewExp({ ...newExp, description: e.target.value })}
-                  placeholder="e.g. 15kg Royal Canin Adult Food"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                />
-              </div>
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button type="button" onClick={() => setExpensePet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                  Cancel
-                </button>
-                <button type="submit" className="px-5 py-2 bg-blue-50 text-blue-900 font-black text-xs rounded-xl border border-blue-200 hover:bg-blue-100">
-                  Save Expense
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== REMINDER MODAL ==================== */}
-      {reminderPet && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-amber-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Schedule Reminder for {reminderPet.name}</h2>
-              </div>
-              <button onClick={() => setReminderPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddReminderSubmit} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Title *</label>
-                <input
-                  type="text"
-                  required
-                  value={newRem.title}
-                  onChange={(e) => setNewRem({ ...newRem, title: e.target.value })}
-                  placeholder="e.g. Deworming Tablet"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={newRem.date}
-                    onChange={(e) => setNewRem({ ...newRem, date: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Repeat</label>
-                  <select
-                    value={newRem.repeat}
-                    onChange={(e) => setNewRem({ ...newRem, repeat: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold"
-                  >
-                    <option value="ONCE">ONCE</option>
-                    <option value="MONTHLY">MONTHLY</option>
-                    <option value="EVERY_3_MONTHS">EVERY 3 MONTHS</option>
-                    <option value="YEARLY">YEARLY</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button type="button" onClick={() => setReminderPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                  Cancel
-                </button>
-                <button type="submit" className="px-5 py-2 bg-amber-50 text-amber-900 font-black text-xs rounded-xl border border-amber-200 hover:bg-amber-100">
-                  Save Reminder
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== BROADCAST EMERGENCY MISSING ALERT MODAL ==================== */}
-      {broadcastPet && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Share2 className="w-5 h-5 text-rose-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Broadcast Missing Alert - {broadcastPet.name}</h2>
-              </div>
-              <button onClick={() => setBroadcastPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <p className="text-slate-600 font-medium leading-relaxed">
-                Pre-formatted missing alert text ready to broadcast directly to WhatsApp, Telegram, or social media:
-              </p>
-
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl font-mono text-[11px] text-rose-950 font-bold space-y-1">
-                <p>🚨 EMERGENCY MISSING PET ALERT 🚨</p>
-                <p>Name: {broadcastPet.name}</p>
-                <p>Breed: {broadcastPet.breed}</p>
-                <p>Color: {broadcastPet.color || 'Golden'}</p>
-                <p>Microchip ID: {broadcastPet.microchipId || '988 000 123 456 789'}</p>
-                <p>QR Link: {getPetPublicUrl(broadcastPet.publicId)}</p>
-                <p>Reward: {broadcastPet.rewardAmount || '₹5,000 Cash Reward'}</p>
-                <p>Please call family: {broadcastPet.user?.phone || '+91 96526 36993'}</p>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const text = `🚨 EMERGENCY MISSING PET ALERT 🚨\nName: ${broadcastPet.name}\nBreed: ${broadcastPet.breed}\nScan QR: ${getPetPublicUrl(broadcastPet.publicId)}\nContact: ${broadcastPet.user?.phone || '+91 96526 36993'}`;
-                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                  }}
-                  className="flex-1 py-2.5 bg-emerald-50 text-emerald-800 font-extrabold rounded-xl border border-emerald-300 hover:bg-emerald-100 text-center"
-                >
-                  Share to WhatsApp
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const text = `🚨 EMERGENCY MISSING PET ALERT 🚨\nName: ${broadcastPet.name}\nBreed: ${broadcastPet.breed}\nScan QR: ${getPetPublicUrl(broadcastPet.publicId)}\nContact: ${broadcastPet.user?.phone || '+91 96526 36993'}`;
-                    navigator.clipboard.writeText(text);
-                    alert('Emergency alert text copied to clipboard!');
-                  }}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-800 font-extrabold rounded-xl border border-slate-200 hover:bg-slate-200 text-center"
-                >
-                  Copy Text
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== DOCUMENTS VAULT MODAL ==================== */}
-      {docPet && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Paperclip className="w-5 h-5 text-indigo-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Document Vault - {docPet.name}</h2>
-              </div>
-              <button onClick={() => setDocPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* List Existing Documents */}
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              <span className="text-[11px] font-bold text-slate-500 uppercase block">Saved Documents</span>
-              {((docPet as any).documents || []).length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No documents uploaded yet.</p>
-              ) : (
-                ((docPet as any).documents || []).map((d: any) => (
-                  <div key={d.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800">{d.title}</span>
-                    <a href={d.url} target="_blank" rel="noreferrer" className="text-brand-coral font-bold hover:underline">
-                      View Document &rarr;
-                    </a>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Upload Document Form */}
-            <form onSubmit={handleAddDocSubmit} className="pt-3 border-t border-slate-100 space-y-3">
-              <span className="text-[11px] font-bold text-indigo-700 uppercase block">➕ Save New Document</span>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Document Title</label>
-                <input
-                  type="text"
-                  required
-                  value={newDoc.title}
-                  onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
-                />
-              </div>
-
-              <div className="flex justify-between gap-2 pt-2">
-                <button type="button" onClick={() => setDocPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                  Done
-                </button>
-                <button type="submit" className="px-5 py-2 bg-indigo-50 text-indigo-800 font-black text-xs rounded-xl border border-indigo-200 hover:bg-indigo-100">
-                  Save Document
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== MEDICAL PASSPORT PRINT PREVIEW ==================== */}
-      {passportPet && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-xl w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-purple-600" />
-                <h2 className="text-base sm:text-lg font-black text-slate-900">Official Pet Identity & Medical Passport</h2>
-              </div>
-              <button onClick={() => setPassportPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Passport Card Content */}
-            <div className="p-5 sm:p-6 bg-slate-50 border-2 border-slate-900 rounded-3xl space-y-4 font-sans text-slate-900">
-              <div className="flex items-center justify-between pb-3 border-b-2 border-slate-900">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black tracking-tight">{passportPet.name}</h3>
-                  <p className="text-xs font-bold text-brand-coral uppercase">{passportPet.breed} • {passportPet.gender}</p>
-                </div>
-                <span className="text-[11px] font-mono font-black bg-slate-900 text-white px-3 py-1 rounded-full">
-                  ID: {passportPet.publicId}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs font-medium">
-                <div>
-                  <span className="text-slate-500 block">Microchip ID:</span>
-                  <span className="font-mono font-bold text-slate-900">{passportPet.microchipId || '988 000 123 456 789'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Registration No:</span>
-                  <span className="font-bold text-slate-900">{passportPet.registrationNo || 'PET-HYD-2026-001'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Color & Weight:</span>
-                  <span className="font-bold text-slate-900">{passportPet.color || 'Golden'} • {passportPet.weight || '28 kg'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Emergency Phone:</span>
-                  <span className="font-bold text-slate-900">{passportPet.user?.phone || '+91 96526 36993'}</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200">
-                <span className="text-[11px] font-black uppercase text-slate-700 block mb-1">Vaccination Certificate Status</span>
-                <div className="space-y-1">
-                  {(passportPet.vaccinations || []).map((v: any) => (
-                    <div key={v.id} className="flex justify-between text-xs py-1 border-b border-slate-200/60">
-                      <span className="font-bold text-slate-900">{v.vaccineName}</span>
-                      <span className="font-bold text-emerald-700">✅ {v.status} ({v.dateAdministered})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setPassportPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
-                Close
-              </button>
-              <button type="button" onClick={() => window.print()} className="px-5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 font-black text-xs rounded-xl border border-purple-200">
-                🖨️ Print Passport Document
-              </button>
-            </div>
           </div>
         </div>
       )}
