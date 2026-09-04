@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'petId and title required' }, { status: 400 });
     }
 
-    const reminder = addReminderToStore(data.petId, data);
+    const reminder = await addReminderToStore(data.petId, data);
     return NextResponse.json({ success: true, reminder });
   } catch (err) {
     console.error('Reminder create error:', err);

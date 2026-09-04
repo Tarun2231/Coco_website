@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'petId and amount required' }, { status: 400 });
     }
 
-    const expense = addExpenseToStore(data.petId, data);
+    const expense = await addExpenseToStore(data.petId, data);
     return NextResponse.json({ success: true, expense });
   } catch (err) {
     console.error('Expense create error:', err);
