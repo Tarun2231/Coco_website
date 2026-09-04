@@ -36,7 +36,7 @@ interface AdminPetsClientProps {
 }
 
 export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets }) => {
-  // Permanent Client-Side LocalStorage Persistence
+  // Permanent Client-Side LocalStorage & Cloud Store State
   const [pets, setPets] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('puppy_id_pets');
@@ -54,7 +54,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Cross-device sync fetcher: Merges server store with local storage
+  // Cross-device sync fetcher: Overwrites state with single source of truth from Cloud Store
   const syncServerPets = useCallback(async () => {
     try {
       setIsSyncing(true);
@@ -62,22 +62,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.pets)) {
-          setPets((prevLocal) => {
-            const petMap = new Map();
-            // Server pets take priority
-            data.pets.forEach((p: any) => petMap.set(p.id, p));
-            // Add any local pets not yet on server
-            prevLocal.forEach((p: any) => {
-              if (!petMap.has(p.id)) {
-                petMap.set(p.id, p);
-              }
-            });
-            const merged = Array.from(petMap.values());
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
-            }
-            return merged;
-          });
+          setPets(data.pets);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
+          }
         }
       }
     } catch (err) {
@@ -199,6 +187,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isLost: !currentStatus }),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to toggle lost mode:', err);
     }
@@ -207,11 +196,15 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Delete / Remove Pet Handler
   const handleDeletePet = async () => {
     if (!deletingPet) return;
-    setPets((prev) => prev.filter((p) => p.id !== deletingPet.id));
+    const targetId = deletingPet.id;
+    setPets((prev) => prev.filter((p) => p.id !== targetId));
     setDeletingPet(null);
     setManagePet(null);
     try {
-      await fetch(`/api/pets/${deletingPet.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/pets/${targetId}`, { method: 'DELETE' });
+      if (res.ok) {
+        syncServerPets();
+      }
     } catch (err) {
       console.error('Failed to delete pet:', err);
     }
@@ -315,15 +308,19 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         },
       };
 
-      // Add to React State immediately & trigger localStorage save
+      // Add to React State immediately
       setPets((prev) => [newPet, ...prev]);
 
-      // Call API to store on server so other devices (laptop/mobile) can fetch it!
-      fetch('/api/pets', {
+      // Call API to store in Cloud Engine so all devices (laptop/mobile) fetch it!
+      const res = await fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPet),
-      }).catch(console.error);
+      });
+
+      if (res.ok) {
+        syncServerPets();
+      }
 
       setIsAddModalOpen(false);
       setStep(1);
@@ -372,6 +369,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to edit pet:', err);
     }
@@ -418,6 +416,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newVacItem),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to add vaccination:', err);
     }
@@ -459,6 +458,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newExpItem),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to add expense:', err);
     }
@@ -500,6 +500,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newRemItem),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to add reminder:', err);
     }
@@ -558,6 +559,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ petId, id: vacId, status: newStatus }),
       });
+      syncServerPets();
     } catch (err) {
       console.error('Failed to update vaccination status:', err);
     }
@@ -602,27 +604,27 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       <input type="file" ref={cameraInputRef} accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
 
       {/* Main Studio Banner Header (Light Aesthetic & Mobile Responsive) */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-white via-cream-50 to-white p-5 sm:p-7 md:p-8 border border-slate-200/80 shadow-xs">
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-white via-cream-50 to-white p-4 sm:p-7 md:p-8 border border-slate-200/80 shadow-xs">
+        <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-5">
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>Puppy ID Studio Registry (Cross-Device Sync)</span>
+              <span>Puppy ID Studio Registry (Live Sync)</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Multi-Puppy Management & QR Code Tag Studio
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl leading-relaxed">
-              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets. Data syncs across mobile & desktop.
+              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets. Instant cross-device sync.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
             <button
               onClick={() => syncServerPets()}
               disabled={isSyncing}
               title="Sync Mobile & Desktop Pets"
-              className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl border border-slate-200 flex items-center justify-center gap-1.5 transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-coral' : 'text-slate-500'}`} />
               <span>{isSyncing ? 'Syncing...' : 'Sync Devices'}</span>
@@ -633,10 +635,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 setStep(1);
                 setIsAddModalOpen(true);
               }}
-              className="w-full sm:w-auto font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-6 py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
+              className="w-full sm:w-auto font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
             >
               <Plus className="w-4 h-4 text-brand-coral" />
-              <span>➕ Add New Puppy (Step-by-Step)</span>
+              <span>➕ Add New Puppy</span>
             </button>
           </div>
         </div>
@@ -644,53 +646,53 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       {/* 4 Stat Overview Metrics Row (Light Aesthetic & Mobile Responsive) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 shadow-xs space-y-1 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Registered Puppies</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <Dog className="w-4 h-4" />
+            <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider">Registered Puppies</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <Dog className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">{totalPuppies}</div>
-          <p className="text-[10px] text-slate-500 font-medium truncate">Digital QR ID tags created</p>
+          <div className="text-xl sm:text-3xl font-extrabold text-slate-800">{totalPuppies}</div>
+          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">Digital QR ID tags created</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 shadow-xs space-y-1 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Lost Emergencies</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-              <AlertTriangle className="w-4 h-4" />
+            <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider">Lost Emergencies</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-rose-600">{lostPuppiesCount}</div>
-          <p className="text-[10px] text-slate-500 font-medium truncate">Active emergency alerts</p>
+          <div className="text-xl sm:text-3xl font-extrabold text-rose-600">{lostPuppiesCount}</div>
+          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">Active emergency alerts</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 shadow-xs space-y-1 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">Verified Vaccines</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <Syringe className="w-4 h-4" />
+            <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider">Verified Vaccines</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <Syringe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700">{totalVaccinations}</div>
-          <p className="text-[10px] text-slate-500 font-medium truncate">Rabies & booster records</p>
+          <div className="text-xl sm:text-3xl font-extrabold text-emerald-700">{totalVaccinations}</div>
+          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">Rabies & booster records</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-1.5 hover:shadow-sm transition-shadow">
+        <div className="bg-white rounded-3xl p-3.5 sm:p-5 border border-slate-200/80 shadow-xs space-y-1 hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider">QR Code Scans</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <QrCode className="w-4 h-4" />
+            <span className="text-[9px] sm:text-[11px] font-extrabold uppercase tracking-wider">QR Code Scans</span>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <QrCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">{totalScans}</div>
-          <p className="text-[10px] text-slate-500 font-medium truncate">Collar tag scans logged</p>
+          <div className="text-xl sm:text-3xl font-extrabold text-slate-800">{totalScans}</div>
+          <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium truncate">Collar tag scans logged</p>
         </div>
       </div>
 
       {/* Search & Filter Toolbar (Light Theme & Mobile Responsive) */}
-      <div className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+      <div className="bg-white rounded-3xl p-3.5 sm:p-4 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
           <input
@@ -727,14 +729,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
       {/* Empty State when no pets registered */}
       {filteredPets.length === 0 && (
-        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-xs text-center max-w-xl mx-auto space-y-4 my-6 animate-fadeIn">
-          <div className="w-16 h-16 rounded-2xl bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-xs">
-            <Dog className="w-8 h-8" />
+        <div className="bg-white rounded-3xl p-6 sm:p-12 border border-slate-200/80 shadow-xs text-center max-w-xl mx-auto space-y-4 my-6 animate-fadeIn">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-xs">
+            <Dog className="w-7 h-7 sm:w-8 sm:h-8" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-xl font-extrabold text-slate-800">Welcome to Puppy ID Studio!</h3>
+            <h3 className="text-lg sm:text-xl font-extrabold text-slate-800">Welcome to Puppy ID Studio!</h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
-              Your registry is currently empty. Click below to add your first puppy. All puppy details and QR codes sync across mobile & desktop.
+              Your registry is currently empty. Click below to add your first puppy. All puppy details and QR codes sync live across mobile & desktop.
             </p>
           </div>
           <button
@@ -751,7 +753,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       )}
 
       {/* Puppy Registry Cards Grid (CLEAN, UNCLUTTERED DESIGNS) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
         {filteredPets.map((pet) => {
           const publicUrl = getPetPublicUrl(pet.publicId);
           const svgId = `admin-qr-${pet.id}`;
@@ -761,24 +763,24 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           return (
             <div
               key={pet.id}
-              className={`bg-white rounded-3xl p-5 sm:p-6 border flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
+              className={`bg-white rounded-3xl p-4 sm:p-6 border flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
                 pet.isLost ? 'border-rose-300 bg-rose-50/20 ring-2 ring-rose-200' : 'border-slate-200/80 shadow-xs'
               }`}
             >
               <div>
                 {/* Dog Card Header (NO TEXT "Male/Female" - ONLY SKY BLUE OR PINK DOT BADGE) */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
                     <img
                       src={pet.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400'}
                       alt={pet.name}
-                      className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full object-cover shrink-0 border-2 shadow-sm ${
+                      className={`w-11 h-11 sm:w-13 sm:h-13 rounded-full object-cover shrink-0 border-2 shadow-sm ${
                         isPetMale ? 'border-blue-300 ring-2 ring-blue-50' : 'border-pink-300 ring-2 ring-pink-50'
                       }`}
                     />
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-extrabold text-slate-800 text-lg sm:text-xl leading-tight">{pet.name}</h3>
+                        <h3 className="font-extrabold text-slate-800 text-base sm:text-xl leading-tight">{pet.name}</h3>
                         {/* STYLISH BLUE / PINK DOT ACCENT (NO GENDER TEXT) */}
                         <span
                           title={isPetMale ? 'Male' : 'Female'}
@@ -796,28 +798,28 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   {/* LOST MODE BUTTON WITH BLINKING ANIMATION WHEN ACTIVE */}
                   <button
                     onClick={() => toggleLostStatus(pet.id, pet.isLost)}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
                       pet.isLost
                         ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
                         : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
                     }`}
                   >
-                    {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
+                    {pet.isLost ? '🚨 LOST MODE' : '❤️ SAFE'}
                   </button>
                 </div>
 
                 {/* Unique High-Contrast Printable QR Code Container */}
-                <div className="my-4 p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200/90">
+                <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200/90">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
-                    size={140}
+                    size={130}
                     bgColor={'#ffffff'}
                     fgColor={qrFgColor}
                     level={'H'}
                     includeMargin={true}
                   />
-                  <div className="text-[11px] font-mono text-slate-600 mt-2 truncate max-w-full font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
+                  <div className="text-[10px] sm:text-[11px] font-mono text-slate-600 mt-2 truncate max-w-full font-bold bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
                     /pet/{pet.publicId}
                   </div>
 
@@ -846,7 +848,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
 
                 {/* Info Details Grid */}
-                <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-3.5 sm:p-4 rounded-2xl border border-slate-100">
+                <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-3 sm:p-4 rounded-2xl border border-slate-100">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500 font-medium">Species & Color:</span>
                     <span className="font-extrabold text-slate-800">{pet.species} • {pet.color || 'Golden'}</span>
@@ -886,17 +888,17 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                       });
                       setManageTab('EDIT');
                     }}
-                    className="py-2.5 px-3 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-extrabold text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                    className="py-2.5 px-2 sm:px-3 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-extrabold text-[11px] sm:text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shadow-xs"
                   >
-                    <SlidersHorizontal className="w-4 h-4 text-brand-coral" />
-                    <span>Manage Care Hub</span>
+                    <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-coral" />
+                    <span>Manage Hub</span>
                   </button>
 
                   <button
                     onClick={() => downloadQR(pet.name, svgId)}
-                    className="py-2.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 font-extrabold text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                    className="py-2.5 px-2 sm:px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 font-extrabold text-[11px] sm:text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-1 sm:gap-1.5 transition-colors shadow-xs"
                   >
-                    <Download className="w-4 h-4 text-blue-600" />
+                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                     <span>Download QR</span>
                   </button>
                 </div>
@@ -916,7 +918,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       {/* ==================== SLEEK PET MANAGEMENT HUB MODAL ==================== */}
       {managePet && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-2xl w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-4 sm:p-7 max-w-2xl w-[95%] sm:w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <img src={managePet.photo} alt={managePet.name} className="w-10 h-10 rounded-full object-cover border-2 border-brand-coral" />
@@ -1205,11 +1207,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       {/* ==================== STEP-BY-STEP ADD PUPPY MODAL ==================== */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-5 sm:p-7 max-w-lg w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-4 sm:p-7 max-w-lg w-[95%] sm:w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                  <Dog className="w-5 h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                  <Dog className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-black text-slate-800">Add New Puppy Studio</h2>
@@ -1231,7 +1233,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     key={s.num}
                     type="button"
                     onClick={() => setStep(s.num)}
-                    className={`py-1.5 sm:py-2 px-1 rounded-xl text-[9px] sm:text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
+                    className={`py-1.5 sm:py-2 px-1 rounded-xl text-[8px] sm:text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
                       isActive
                         ? isMale ? 'bg-blue-600 text-white shadow-xs' : 'bg-pink-500 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-800 hover:bg-white/60'
