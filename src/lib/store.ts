@@ -133,7 +133,10 @@ export function getPetById(idOrPublicId: string): PetRecord | undefined {
   return all.find((p) => p.id === idOrPublicId || p.publicId === idOrPublicId);
 }
 
-export function addPetToStore(data: Partial<PetRecord>): PetRecord {
+export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord> {
+  // Sync first to get latest cloud pets
+  const currentPets = await syncFromCloudStore();
+
   const cleanName = String(data.name || 'Puppy').trim();
   const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
   const publicId = data.publicId || `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
@@ -176,7 +179,6 @@ export function addPetToStore(data: Partial<PetRecord>): PetRecord {
     },
   };
 
-  const currentPets = getAllPets();
   const existingIdx = currentPets.findIndex((p) => p.id === newPet.id || p.publicId === newPet.publicId);
   if (existingIdx === -1) {
     currentPets.unshift(newPet);
@@ -184,38 +186,39 @@ export function addPetToStore(data: Partial<PetRecord>): PetRecord {
     currentPets[existingIdx] = newPet;
   }
 
-  saveToCloudStore(currentPets).catch(console.error);
+  await saveToCloudStore(currentPets);
   return newPet;
 }
 
-export function updatePetInStore(petId: string, updates: Partial<PetRecord>): PetRecord | undefined {
-  const all = getAllPets();
-  const index = all.findIndex((p) => p.id === petId || p.publicId === petId);
+export async function updatePetInStore(petId: string, updates: Partial<PetRecord>): Promise<PetRecord | undefined> {
+  const currentPets = await syncFromCloudStore();
+  const index = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
   if (index !== -1) {
-    all[index] = { ...all[index], ...updates };
-    saveToCloudStore(all).catch(console.error);
-    return all[index];
+    currentPets[index] = { ...currentPets[index], ...updates };
+    await saveToCloudStore(currentPets);
+    return currentPets[index];
   }
   return undefined;
 }
 
-export function deletePetFromStore(petId: string): boolean {
-  const current = getAllPets();
-  const idx = current.findIndex((p) => p.id === petId || p.publicId === petId);
+export async function deletePetFromStore(petId: string): Promise<boolean> {
+  const currentPets = await syncFromCloudStore();
+  const idx = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
   if (idx !== -1) {
-    current.splice(idx, 1);
-    saveToCloudStore(current).catch(console.error);
+    currentPets.splice(idx, 1);
+    await saveToCloudStore(currentPets);
     return true;
   }
   return false;
 }
 
-export function toggleLostModeInStore(petId: string, isLost: boolean): PetRecord | undefined {
+export async function toggleLostModeInStore(petId: string, isLost: boolean): Promise<PetRecord | undefined> {
   return updatePetInStore(petId, { isLost });
 }
 
-export function addVaccinationToStore(petId: string, vacData: Partial<VaccinationRecord>): VaccinationRecord {
-  const pet = getPetById(petId);
+export async function addVaccinationToStore(petId: string, vacData: Partial<VaccinationRecord>): Promise<VaccinationRecord> {
+  const currentPets = await syncFromCloudStore();
+  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   const newVac: VaccinationRecord = {
     id: vacData.id || `vac-${Date.now()}`,
     petId: pet?.id || petId,
@@ -229,27 +232,30 @@ export function addVaccinationToStore(petId: string, vacData: Partial<Vaccinatio
   };
 
   if (pet) {
+    if (!pet.vaccinations) pet.vaccinations = [];
     pet.vaccinations.unshift(newVac);
-    saveToCloudStore(getAllPets()).catch(console.error);
+    await saveToCloudStore(currentPets);
   }
   return newVac;
 }
 
-export function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): VaccinationRecord | undefined {
-  const pet = getPetById(petId);
+export async function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): Promise<VaccinationRecord | undefined> {
+  const currentPets = await syncFromCloudStore();
+  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (pet) {
     const idx = pet.vaccinations.findIndex((v) => v.id === vacId);
     if (idx !== -1) {
       pet.vaccinations[idx] = { ...pet.vaccinations[idx], ...updates };
-      saveToCloudStore(getAllPets()).catch(console.error);
+      await saveToCloudStore(currentPets);
       return pet.vaccinations[idx];
     }
   }
   return undefined;
 }
 
-export function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): ExpenseRecord {
-  const pet = getPetById(petId);
+export async function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
+  const currentPets = await syncFromCloudStore();
+  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   const newExp: ExpenseRecord = {
     id: expData.id || `exp-${Date.now()}`,
     petId: pet?.id || petId,
@@ -264,13 +270,14 @@ export function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>
   if (pet) {
     if (!pet.expenses) pet.expenses = [];
     pet.expenses.unshift(newExp);
-    saveToCloudStore(getAllPets()).catch(console.error);
+    await saveToCloudStore(currentPets);
   }
   return newExp;
 }
 
-export function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): ReminderRecord {
-  const pet = getPetById(petId);
+export async function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): Promise<ReminderRecord> {
+  const currentPets = await syncFromCloudStore();
+  const pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   const newRem: ReminderRecord = {
     id: remData.id || `rem-${Date.now()}`,
     petId: pet?.id || petId,
@@ -286,7 +293,7 @@ export function addReminderToStore(petId: string, remData: Partial<ReminderRecor
   if (pet) {
     if (!pet.reminders) pet.reminders = [];
     pet.reminders.unshift(newRem);
-    saveToCloudStore(getAllPets()).catch(console.error);
+    await saveToCloudStore(currentPets);
   }
   return newRem;
 }
