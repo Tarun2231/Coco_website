@@ -24,6 +24,7 @@ import {
   Share2,
   Paperclip,
   Trash2,
+  Settings2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -634,28 +635,17 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {/* LOST MODE BUTTON WITH BLINKING ANIMATION WHEN ACTIVE */}
-                    <button
-                      onClick={() => toggleLostStatus(pet.id, pet.isLost)}
-                      className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
-                        pet.isLost
-                          ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
-                      }`}
-                    >
-                      {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
-                    </button>
-
-                    {/* NEW FUNCTIONALITY: DELETE / REMOVE PET BUTTON */}
-                    <button
-                      onClick={() => setDeletingPet(pet)}
-                      title="Remove Pet"
-                      className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {/* LOST MODE BUTTON WITH BLINKING ANIMATION WHEN ACTIVE */}
+                  <button
+                    onClick={() => toggleLostStatus(pet.id, pet.isLost)}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
+                      pet.isLost
+                        ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
+                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
+                    }`}
+                  >
+                    {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
+                  </button>
                 </div>
 
                 {/* Unique High-Contrast Printable QR Code Container */}
@@ -721,8 +711,16 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </div>
               </div>
 
-              {/* LIGHT-THEMED Action Buttons Grid */}
-              <div className="space-y-2 pt-2">
+              {/* CLEAN & ORGANIZED MANAGE SECTION */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                    <Settings2 className="w-3 h-3 text-slate-400" />
+                    <span>Manage & Quick Actions</span>
+                  </span>
+                </div>
+
+                {/* Row 1: Edit & Vaccines */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
@@ -752,7 +750,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Quick Action Buttons (All Light Colors) */}
+                {/* Row 2: Expenses, Reminders, Passport */}
                 <div className="grid grid-cols-3 gap-1.5">
                   <button
                     onClick={() => setExpensePet(pet)}
@@ -779,25 +777,35 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Broadcast Alert & Document Vault Buttons */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Row 3: Broadcast, Docs Vault, Remove Pet */}
+                <div className="grid grid-cols-3 gap-1.5">
                   <button
                     onClick={() => setBroadcastPet(pet)}
-                    className="py-2 px-2 bg-rose-50 hover:bg-rose-100 text-rose-900 font-black text-xs rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors"
+                    className="py-2 px-1 bg-rose-50 hover:bg-rose-100 text-rose-900 font-extrabold text-[11px] rounded-xl border border-rose-200 flex items-center justify-center gap-1 transition-colors"
                   >
                     <Share2 className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Broadcast Alert</span>
+                    <span>Alert</span>
                   </button>
 
                   <button
                     onClick={() => setDocPet(pet)}
-                    className="py-2 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-black text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-1.5 transition-colors"
+                    className="py-2 px-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-extrabold text-[11px] rounded-xl border border-indigo-200 flex items-center justify-center gap-1 transition-colors"
                   >
                     <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Docs Vault ({docList.length})</span>
+                    <span>Docs ({docList.length})</span>
+                  </button>
+
+                  {/* PROMINENT LIGHT-RED REMOVE PET BUTTON */}
+                  <button
+                    onClick={() => setDeletingPet(pet)}
+                    className="py-2 px-1 bg-rose-50/90 hover:bg-rose-100 text-rose-800 font-black text-[11px] rounded-xl border border-rose-200/90 flex items-center justify-center gap-1 transition-colors shadow-xs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Remove</span>
                   </button>
                 </div>
 
+                {/* Row 4: Download QR Tag & Public Link */}
                 <button
                   onClick={() => downloadQR(pet.name, svgId)}
                   className="w-full py-2.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
