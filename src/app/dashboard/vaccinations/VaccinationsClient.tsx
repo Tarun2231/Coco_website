@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Syringe, CheckCircle2, Calendar, Plus, Clock, AlertCircle } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -28,8 +28,47 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
   petId,
   petName,
 }) => {
-  const [vaccinations, setVaccinations] = useState<VaccinationItem[]>(initialVaccinations);
-  const [vaccineName, setVaccineName] = useState('Rabies Vaccine');
+  const [vaccinations, setVaccinations] = useState<VaccinationItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const currentPet = parsed.find((p: any) => p.id === petId || p.publicId === petId) || parsed[0];
+            if (currentPet?.vaccinations && Array.isArray(currentPet.vaccinations)) {
+              return currentPet.vaccinations;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return initialVaccinations;
+  });
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch('/api/pets', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.pets) && data.pets.length > 0) {
+            const currentPet = data.pets.find((p: any) => p.id === petId || p.publicId === petId) || data.pets[0];
+            if (currentPet?.vaccinations && Array.isArray(currentPet.vaccinations)) {
+              setVaccinations(currentPet.vaccinations);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Fetch vaccinations error:', e);
+      }
+    };
+    fetchLatest();
+  }, [petId]);
+
+  const [vaccineName, setVaccineName] = useState('Rabies Anti-Rabies Vaccine');
   const [dateAdministered, setDateAdministered] = useState(new Date().toISOString().split('T')[0]);
   const [nextDueDate, setNextDueDate] = useState('');
   const [vetName, setVetName] = useState('');
@@ -50,13 +89,36 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       dateAdministered,
       nextDueDate: nextDueDate || undefined,
       vetName: vetName || 'Dr. Rahul Verma',
-      clinic: clinic || 'Banjara Pet Hospital',
+      clinic: clinic || 'Banjara Vet Hospital',
       notes,
       status,
     };
 
-    setVaccinations([newVac, ...vaccinations]);
-    setVaccineName('Rabies Vaccine');
+    const updatedVacs = [newVac, ...vaccinations];
+    setVaccinations(updatedVacs);
+
+    // Sync with localStorage pets array
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const updatedPets = parsed.map((p: any) => {
+              if (p.id === petId || p.publicId === petId) {
+                return { ...p, vaccinations: updatedVacs };
+              }
+              return p;
+            });
+            localStorage.setItem('puppy_id_pets', JSON.stringify(updatedPets));
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    setVaccineName('Rabies Anti-Rabies Vaccine');
     setNextDueDate('');
     setVetName('');
     setClinic('');
@@ -119,13 +181,12 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                   onChange={(e) => setVaccineName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 bg-white"
                 >
-                  <option value="Rabies Vaccine">Rabies Anti-Rabies Vaccine</option>
+                  <option value="Rabies Anti-Rabies Vaccine">Rabies Anti-Rabies Vaccine</option>
                   <option value="DHPP Core Vaccine">DHPP (Distemper, Hepatitis, Parvo, Parainfluenza)</option>
                   <option value="Annual Booster Shot">Annual Immunity Booster</option>
                   <option value="Bordetella Kennel Cough">Bordetella Kennel Cough</option>
                   <option value="Leptospirosis Vaccine">Leptospirosis Vaccine</option>
                   <option value="Lyme Disease Vaccine">Lyme Disease Vaccine</option>
-                  <option value="Custom Vaccine">Other Custom Vaccine</option>
                 </select>
               </div>
 
@@ -168,7 +229,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                     type="text"
                     value={clinic}
                     onChange={(e) => setClinic(e.target.value)}
-                    placeholder="Banjara Vet Clinic"
+                    placeholder="Banjara Vet Hospital"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
