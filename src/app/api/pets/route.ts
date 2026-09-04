@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAllPets, addPetToStore } from '@/lib/store';
+import { syncFromCloudStore, addPetToStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const pets = getAllPets();
+  const pets = await syncFromCloudStore();
   return NextResponse.json({ pets });
 }
 
