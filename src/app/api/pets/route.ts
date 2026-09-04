@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Pet Name is required' }, { status: 400 });
     }
 
-    const newPet = addPetToStore(data);
+    const newPet = await addPetToStore(data);
     return NextResponse.json({ success: true, pet: newPet });
   } catch (err) {
     console.error('Add pet error:', err);
