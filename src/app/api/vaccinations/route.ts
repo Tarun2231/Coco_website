@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'petId and vaccineName required' }, { status: 400 });
     }
 
-    const vaccination = addVaccinationToStore(data.petId, data);
+    const vaccination = await addVaccinationToStore(data.petId, data);
     return NextResponse.json({ success: true, vaccination });
   } catch (err) {
     console.error('Vaccination create error:', err);
@@ -37,7 +37,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'petId and id required' }, { status: 400 });
     }
 
-    const updated = updateVaccinationInStore(data.petId, data.id, data);
+    const updated = await updateVaccinationInStore(data.petId, data.id, data);
     return NextResponse.json({ success: true, vaccination: updated });
   } catch (err) {
     console.error('Vaccination update error:', err);
