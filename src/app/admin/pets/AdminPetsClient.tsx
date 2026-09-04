@@ -21,6 +21,9 @@ import {
   Bell,
   Printer,
   Sparkles,
+  Share2,
+  Paperclip,
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -45,6 +48,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const [expensePet, setExpensePet] = useState<any | null>(null);
   const [reminderPet, setReminderPet] = useState<any | null>(null);
   const [passportPet, setPassportPet] = useState<any | null>(null);
+  const [broadcastPet, setBroadcastPet] = useState<any | null>(null);
+  const [docPet, setDocPet] = useState<any | null>(null);
+
+  // QR Color Customizer state
+  const [qrFgColor, setQrFgColor] = useState('#182232');
 
   // Add Step-by-Step Form state
   const [step, setStep] = useState(1);
@@ -100,6 +108,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     time: '09:00 AM',
     repeat: 'EVERY_3_MONTHS',
     notes: 'Give tablet with breakfast',
+  });
+
+  // Document Upload Form state
+  const [newDoc, setNewDoc] = useState({
+    title: 'Vaccination Certificate PDF',
+    type: 'Vaccination Record',
+    url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -357,6 +372,25 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
+  // Submit Document Vault Upload
+  const handleAddDocSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docPet || !newDoc.title) return;
+
+    const docItem = { id: `doc-${Date.now()}`, ...newDoc, createdAt: new Date().toISOString() };
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === docPet.id) {
+          const currentDocs = (p as any).documents || [];
+          return { ...p, documents: [docItem, ...currentDocs] };
+        }
+        return p;
+      })
+    );
+    setDocPet(null);
+    setNewDoc({ title: 'Vaccination Certificate PDF', type: 'Vaccination Record', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
+  };
+
   // Update existing vaccination status
   const handleUpdateVaccinationStatus = async (petId: string, vacId: string, newStatus: string) => {
     try {
@@ -415,7 +449,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const isMale = newPetData.gender === 'Male';
   const themeBgClass = isMale
     ? 'bg-blue-50/90 border-blue-200 text-blue-900'
-    : 'bg-rose-50/90 border-rose-200 text-rose-900';
+    : 'bg-pink-50/90 border-pink-200 text-pink-900';
 
   const steps = [
     { num: 1, label: 'Details', icon: Dog },
@@ -551,47 +585,53 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           const vacList = pet.vaccinations || [];
           const expList = pet.expenses || [];
           const remList = pet.reminders || [];
+          const docList = (pet as any).documents || [];
 
           return (
             <div
               key={pet.id}
               className={`bg-white rounded-3xl p-5 sm:p-6 border flex flex-col justify-between space-y-4 hover:shadow-lg transition-all ${
-                pet.isLost ? 'border-rose-300 bg-rose-50/20 ring-2 ring-rose-200' : 'border-slate-200/90 shadow-xs'
+                pet.isLost ? 'border-rose-400 bg-rose-50/20 ring-2 ring-rose-300' : 'border-slate-200/90 shadow-xs'
               }`}
             >
               <div>
-                {/* Dog Card Header */}
+                {/* Dog Card Header (NO TEXT "Male/Female" - ONLY SKY BLUE OR PINK DOT BADGE) */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-3">
                     <img
                       src={pet.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400'}
                       alt={pet.name}
                       className={`w-12 h-12 sm:w-13 sm:h-13 rounded-full object-cover shrink-0 border-2 shadow-sm ${
-                        isPetMale ? 'border-blue-300 ring-2 ring-blue-50' : 'border-rose-300 ring-2 ring-rose-50'
+                        isPetMale ? 'border-blue-300 ring-2 ring-blue-50' : 'border-pink-300 ring-2 ring-pink-50'
                       }`}
                     />
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-black text-slate-900 text-lg sm:text-xl leading-tight">{pet.name}</h3>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
-                          isPetMale ? 'bg-blue-50 text-blue-800 border border-blue-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
-                        }`}>
-                          {isPetMale ? '♂ Male' : '♀ Female'}
-                        </span>
+                        {/* STYLISH BLUE / PINK DOT ACCENT (NO GENDER TEXT) */}
+                        <span
+                          title={isPetMale ? 'Male' : 'Female'}
+                          className={`w-3.5 h-3.5 rounded-full shrink-0 border shadow-xs ${
+                            isPetMale
+                              ? 'bg-blue-400 border-blue-500 ring-2 ring-blue-100'
+                              : 'bg-pink-400 border-pink-500 ring-2 ring-pink-100'
+                          }`}
+                        />
                       </div>
                       <p className="text-xs text-brand-coral font-extrabold mt-0.5">{pet.breed}</p>
                     </div>
                   </div>
 
+                  {/* LOST MODE BUTTON WITH BLINKING / PULSING ANIMATION WHEN ACTIVE */}
                   <button
                     onClick={() => toggleLostStatus(pet.id, pet.isLost)}
-                    className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-xs shrink-0 ${
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all shadow-sm shrink-0 ${
                       pet.isLost
-                        ? 'bg-rose-600 text-white animate-pulse shadow-rose-100'
-                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                        ? 'bg-rose-600 text-white animate-pulse shadow-rose-300 border border-rose-500 ring-4 ring-rose-400/40 font-black'
+                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-extrabold'
                     }`}
                   >
-                    {pet.isLost ? '🚨 LOST MODE' : '❤️ SAFE AT HOME'}
+                    {pet.isLost ? '🚨 LOST MODE (BLINKING)' : '❤️ SAFE AT HOME'}
                   </button>
                 </div>
 
@@ -602,12 +642,35 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     value={publicUrl}
                     size={140}
                     bgColor={'#ffffff'}
-                    fgColor={'#182232'}
+                    fgColor={qrFgColor}
                     level={'H'}
                     includeMargin={true}
                   />
                   <div className="text-[11px] font-mono text-slate-700 mt-2 truncate max-w-full font-bold bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">
                     /pet/{pet.publicId}
+                  </div>
+
+                  {/* QR Color Accent Customizer Buttons */}
+                  <div className="flex items-center gap-1.5 mt-2.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">QR Accent:</span>
+                    {[
+                      { color: '#182232', name: 'Dark' },
+                      { color: '#2563EB', name: 'Royal Blue' },
+                      { color: '#DB2777', name: 'Soft Pink' },
+                      { color: '#059669', name: 'Emerald' },
+                      { color: '#FF6B6B', name: 'Coral' },
+                    ].map((c) => (
+                      <button
+                        key={c.color}
+                        type="button"
+                        onClick={() => setQrFgColor(c.color)}
+                        title={c.name}
+                        style={{ backgroundColor: c.color }}
+                        className={`w-4 h-4 rounded-full border border-white shadow-xs transition-transform hover:scale-125 ${
+                          qrFgColor === c.color ? 'ring-2 ring-slate-900 scale-110' : ''
+                        }`}
+                      />
+                    ))}
                   </div>
                 </div>
 
@@ -693,6 +756,25 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
+                {/* NEW FUNCTIONALITY: Broadcast Alert & Document Vault Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setBroadcastPet(pet)}
+                    className="py-2 px-2 bg-rose-50 hover:bg-rose-100 text-rose-900 font-black text-xs rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Broadcast Alert</span>
+                  </button>
+
+                  <button
+                    onClick={() => setDocPet(pet)}
+                    className="py-2 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-black text-xs rounded-xl border border-indigo-200 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Docs Vault ({docList.length})</span>
+                  </button>
+                </div>
+
                 <button
                   onClick={() => downloadQR(pet.name, svgId)}
                   className="w-full py-2.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30 flex items-center justify-center gap-1.5 transition-colors shadow-xs"
@@ -744,7 +826,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     onClick={() => setStep(s.num)}
                     className={`py-1.5 sm:py-2 px-1 rounded-xl text-[9px] sm:text-[10px] font-black flex items-center justify-center gap-1 transition-all ${
                       isActive
-                        ? isMale ? 'bg-blue-600 text-white shadow-xs' : 'bg-rose-500 text-white shadow-xs'
+                        ? isMale ? 'bg-blue-600 text-white shadow-xs' : 'bg-pink-500 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                     }`}
                   >
@@ -793,11 +875,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                         className={`w-full px-3 py-2.5 rounded-xl border font-black text-xs focus:outline-none focus:ring-2 ${
                           isMale
                             ? 'bg-blue-50 text-blue-900 border-blue-300 focus:ring-blue-400'
-                            : 'bg-rose-50 text-rose-900 border-rose-300 focus:ring-rose-400'
+                            : 'bg-pink-50 text-pink-900 border-pink-300 focus:ring-pink-400'
                         }`}
                       >
-                        <option value="Male">Male (Light Blue ♂)</option>
-                        <option value="Female">Female (Light Pink ♀)</option>
+                        <option value="Male">Male (Sky Blue Theme Dot)</option>
+                        <option value="Female">Female (Soft Pink Theme Dot)</option>
                       </select>
                     </div>
                   </div>
@@ -1286,6 +1368,122 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 </button>
                 <button type="submit" className="px-5 py-2 bg-amber-50 text-amber-900 font-black text-xs rounded-xl border border-amber-200 hover:bg-amber-100">
                   Save Reminder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== BROADCAST EMERGENCY MISSING ALERT MODAL ==================== */}
+      {broadcastPet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-rose-600" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900">Broadcast Missing Alert - {broadcastPet.name}</h2>
+              </div>
+              <button onClick={() => setBroadcastPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-600 font-medium leading-relaxed">
+                Pre-formatted missing alert text ready to broadcast directly to WhatsApp, Telegram, or social media:
+              </p>
+
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl font-mono text-[11px] text-rose-950 font-bold space-y-1">
+                <p>🚨 EMERGENCY MISSING PET ALERT 🚨</p>
+                <p>Name: {broadcastPet.name}</p>
+                <p>Breed: {broadcastPet.breed}</p>
+                <p>Color: {broadcastPet.color || 'Golden'}</p>
+                <p>Microchip ID: {broadcastPet.microchipId || '988 000 123 456 789'}</p>
+                <p>QR Link: {getPetPublicUrl(broadcastPet.publicId)}</p>
+                <p>Reward: {broadcastPet.rewardAmount || '₹5,000 Cash Reward'}</p>
+                <p>Please call family: {broadcastPet.user?.phone || '+91 96526 36993'}</p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `🚨 EMERGENCY MISSING PET ALERT 🚨\nName: ${broadcastPet.name}\nBreed: ${broadcastPet.breed}\nScan QR: ${getPetPublicUrl(broadcastPet.publicId)}\nContact: ${broadcastPet.user?.phone || '+91 96526 36993'}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  className="flex-1 py-2.5 bg-emerald-50 text-emerald-800 font-extrabold rounded-xl border border-emerald-300 hover:bg-emerald-100 text-center"
+                >
+                  Share to WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `🚨 EMERGENCY MISSING PET ALERT 🚨\nName: ${broadcastPet.name}\nBreed: ${broadcastPet.breed}\nScan QR: ${getPetPublicUrl(broadcastPet.publicId)}\nContact: ${broadcastPet.user?.phone || '+91 96526 36993'}`;
+                    navigator.clipboard.writeText(text);
+                    alert('Emergency alert text copied to clipboard!');
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 text-slate-800 font-extrabold rounded-xl border border-slate-200 hover:bg-slate-200 text-center"
+                >
+                  Copy Text
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== DOCUMENTS VAULT MODAL ==================== */}
+      {docPet && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white text-slate-900 border border-slate-200 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Paperclip className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-base sm:text-lg font-black text-slate-900">Document Vault - {docPet.name}</h2>
+              </div>
+              <button onClick={() => setDocPet(null)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List Existing Documents */}
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              <span className="text-[11px] font-bold text-slate-500 uppercase block">Saved Documents</span>
+              {((docPet as any).documents || []).length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No documents uploaded yet.</p>
+              ) : (
+                ((docPet as any).documents || []).map((d: any) => (
+                  <div key={d.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800">{d.title}</span>
+                    <a href={d.url} target="_blank" rel="noreferrer" className="text-brand-coral font-bold hover:underline">
+                      View Document &rarr;
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Upload Document Form */}
+            <form onSubmit={handleAddDocSubmit} className="pt-3 border-t border-slate-100 space-y-3">
+              <span className="text-[11px] font-bold text-indigo-700 uppercase block">➕ Save New Document</span>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Document Title</label>
+                <input
+                  type="text"
+                  required
+                  value={newDoc.title}
+                  onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
+                />
+              </div>
+
+              <div className="flex justify-between gap-2 pt-2">
+                <button type="button" onClick={() => setDocPet(null)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
+                  Done
+                </button>
+                <button type="submit" className="px-5 py-2 bg-indigo-50 text-indigo-800 font-black text-xs rounded-xl border border-indigo-200 hover:bg-indigo-100">
+                  Save Document
                 </button>
               </div>
             </form>
