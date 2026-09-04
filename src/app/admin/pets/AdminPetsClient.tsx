@@ -514,7 +514,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>Puppy ID Studio Registry (Light Theme)</span>
+              <span>Puppy ID Studio Registry (Live Production)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Multi-Puppy Management & QR Code Tag Studio
@@ -619,6 +619,31 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           ))}
         </div>
       </div>
+
+      {/* Empty State when no pets registered */}
+      {filteredPets.length === 0 && (
+        <div className="bg-white rounded-3xl p-8 sm:p-12 border border-slate-200/80 shadow-xs text-center max-w-xl mx-auto space-y-4 my-6 animate-fadeIn">
+          <div className="w-16 h-16 rounded-2xl bg-brand-coral/10 text-brand-coral flex items-center justify-center mx-auto shadow-xs">
+            <Dog className="w-8 h-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-extrabold text-slate-800">Welcome to Live Production!</h3>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
+              Sample data has been removed. Click below to add your first puppy, enter their health & owner details, and generate a live printable QR collar tag.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setStep(1);
+              setIsAddModalOpen(true);
+            }}
+            className="px-6 py-3 font-extrabold bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 rounded-2xl text-xs inline-flex items-center justify-center gap-2 transition-all shadow-xs"
+          >
+            <Plus className="w-4 h-4 text-brand-coral" />
+            <span>➕ Add Your First Puppy</span>
+          </button>
+        </div>
+      )}
 
       {/* Puppy Registry Cards Grid (CLEAN, UNCLUTTERED DESIGNS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
