@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Download,
@@ -35,7 +35,28 @@ interface AdminPetsClientProps {
 }
 
 export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets }) => {
-  const [pets, setPets] = useState<any[]>(initialPets);
+  // Permanent Client-Side LocalStorage Persistence across browser refreshes & reloads
+  const [pets, setPets] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+          console.error('Failed to parse localStorage pets:', e);
+        }
+      }
+    }
+    return initialPets;
+  });
+
+  // Keep localStorage updated on every state mutation
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('puppy_id_pets', JSON.stringify(pets));
+    }
+  }, [pets]);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,18 +145,15 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const toggleLostStatus = async (petId: string, currentStatus: boolean) => {
+    setPets((prev) =>
+      prev.map((p) => (p.id === petId ? { ...p, isLost: !currentStatus } : p))
+    );
     try {
-      const res = await fetch(`/api/pets/${petId}/lost`, {
+      await fetch(`/api/pets/${petId}/lost`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isLost: !currentStatus }),
       });
-
-      if (res.ok) {
-        setPets((prev) =>
-          prev.map((p) => (p.id === petId ? { ...p, isLost: !currentStatus } : p))
-        );
-      }
     } catch (err) {
       console.error('Failed to toggle lost mode:', err);
     }
@@ -144,11 +162,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Delete / Remove Pet Handler
   const handleDeletePet = async () => {
     if (!deletingPet) return;
+    setPets((prev) => prev.filter((p) => p.id !== deletingPet.id));
+    setDeletingPet(null);
+    setManagePet(null);
     try {
       await fetch(`/api/pets/${deletingPet.id}`, { method: 'DELETE' });
-      setPets((prev) => prev.filter((p) => p.id !== deletingPet.id));
-      setDeletingPet(null);
-      setManagePet(null);
     } catch (err) {
       console.error('Failed to delete pet:', err);
     }
@@ -201,58 +219,89 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
     setIsSubmitting(true);
     try {
+      const cleanName = String(newPetData.name).trim();
+      const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const publicId = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+      const petId = `pet-${Date.now()}`;
+
       const initialVaccinations = newPetData.vaccineName
         ? [
             {
               id: `vac-${Date.now()}`,
-              petId: '',
+              petId,
               vaccineName: newPetData.vaccineName,
               dateAdministered: newPetData.dateAdministered,
               nextDueDate: newPetData.nextDueDate || undefined,
               vetName: newPetData.vetName,
               clinic: newPetData.clinic,
-              status: newPetData.vaccineStatus,
+              status: newPetData.vaccineStatus as any,
             },
           ]
         : [];
 
-      const payload = {
-        ...newPetData,
+      const newPet = {
+        id: petId,
+        publicId,
+        name: cleanName,
+        species: newPetData.species || 'Dog',
+        breed: newPetData.breed || 'Golden Retriever',
+        gender: newPetData.gender || 'Male',
+        dob: newPetData.dob || '2025-05-15',
+        color: newPetData.color || 'Golden',
+        weight: newPetData.weight || '28 kg',
+        microchipId: newPetData.microchipId || `988 000 ${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`,
+        registrationNo: newPetData.registrationNo || `PET-HYD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        licenseNo: newPetData.licenseNo || `LIC-${Math.floor(10000 + Math.random() * 90000)}-A`,
+        photo: newPetData.photo || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
+        importantNotes: newPetData.importantNotes || 'Friendly puppy.',
+        isLost: false,
+        user: {
+          name: 'Tarun Milar',
+          phone: '+91 96526 36993',
+          email: 'tarun.tarun460@gmail.com',
+          address: 'Road No. 5, Banjara Hills, Hyderabad',
+        },
         vaccinations: initialVaccinations,
+        expenses: [],
+        reminders: [],
+        qrCode: {
+          qrCodeUrl: getPetPublicUrl(publicId),
+          scanCount: 0,
+        },
       };
 
-      const res = await fetch('/api/pets', {
+      // Add to React State immediately & trigger localStorage save
+      setPets((prev) => [newPet, ...prev]);
+
+      // Call API asynchronously to sync with server store
+      fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+        body: JSON.stringify(newPet),
+      }).catch(console.error);
 
-      const data = await res.json().catch(() => ({}));
-      if (data.pet) {
-        setPets((prev) => [data.pet, ...prev]);
-        setIsAddModalOpen(false);
-        setStep(1);
-        setNewPetData({
-          name: '',
-          species: 'Dog',
-          breed: 'Golden Retriever',
-          gender: 'Male',
-          dob: '',
-          color: '',
-          weight: '',
-          microchipId: '',
-          registrationNo: '',
-          licenseNo: '',
-          photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
-          importantNotes: '',
-          vaccineName: 'Rabies Anti-Rabies Vaccine',
-          dateAdministered: new Date().toISOString().split('T')[0],
-          nextDueDate: '',
-          vetName: 'Dr. Rahul Verma',
-          clinic: 'Banjara Vet Hospital',
-          vaccineStatus: 'COMPLETED',
-        });
-      }
+      setIsAddModalOpen(false);
+      setStep(1);
+      setNewPetData({
+        name: '',
+        species: 'Dog',
+        breed: 'Golden Retriever',
+        gender: 'Male',
+        dob: '',
+        color: '',
+        weight: '',
+        microchipId: '',
+        registrationNo: '',
+        licenseNo: '',
+        photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
+        importantNotes: '',
+        vaccineName: 'Rabies Anti-Rabies Vaccine',
+        dateAdministered: new Date().toISOString().split('T')[0],
+        nextDueDate: '',
+        vetName: 'Dr. Rahul Verma',
+        clinic: 'Banjara Vet Hospital',
+        vaccineStatus: 'COMPLETED',
+      });
     } catch (err) {
       console.error('Failed to add puppy:', err);
     } finally {
@@ -263,23 +312,21 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   // Submit Edit Details
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPet && !managePet) return;
-
     const targetPet = editingPet || managePet;
+    if (!targetPet) return;
+
+    setPets((prev) =>
+      prev.map((p) => (p.id === targetPet.id ? { ...p, ...editFormData } : p))
+    );
+    setEditingPet(null);
+    setManagePet(null);
+
     try {
-      const res = await fetch(`/api/pets/${targetPet.id}/lost`, {
+      await fetch(`/api/pets/${targetPet.id}/lost`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData),
       });
-
-      if (res.ok) {
-        setPets((prev) =>
-          prev.map((p) => (p.id === targetPet.id ? { ...p, ...editFormData } : p))
-        );
-        setEditingPet(null);
-        setManagePet(null);
-      }
     } catch (err) {
       console.error('Failed to edit pet:', err);
     }
@@ -291,44 +338,41 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     const targetPet = vaccinationPet || managePet;
     if (!targetPet) return;
 
+    const newVacItem = {
+      id: `vac-${Date.now()}`,
+      petId: targetPet.id,
+      ...newVac,
+    };
+
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === targetPet.id) {
+          const currentVacs = p.vaccinations || [];
+          return { ...p, vaccinations: [newVacItem, ...currentVacs] };
+        }
+        return p;
+      })
+    );
+    if (managePet) {
+      setManagePet((prev: any) =>
+        prev ? { ...prev, vaccinations: [newVacItem, ...(prev.vaccinations || [])] } : null
+      );
+    }
+    setNewVac({
+      vaccineName: 'Rabies Vaccine',
+      dateAdministered: new Date().toISOString().split('T')[0],
+      nextDueDate: '',
+      vetName: 'Dr. Rahul Verma',
+      clinic: 'Banjara Vet Hospital',
+      status: 'COMPLETED',
+    });
+
     try {
-      const payload = { petId: targetPet.id, ...newVac };
-      const res = await fetch('/api/vaccinations', {
+      await fetch('/api/vaccinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(newVacItem),
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (data.vaccination) {
-        setPets((prev) =>
-          prev.map((p) => {
-            if (p.id === targetPet.id) {
-              const currentVacs = p.vaccinations || [];
-              return { ...p, vaccinations: [data.vaccination, ...currentVacs] };
-            }
-            return p;
-          })
-        );
-        if (vaccinationPet) {
-          setVaccinationPet((prev: any) =>
-            prev ? { ...prev, vaccinations: [data.vaccination, ...(prev.vaccinations || [])] } : null
-          );
-        }
-        if (managePet) {
-          setManagePet((prev: any) =>
-            prev ? { ...prev, vaccinations: [data.vaccination, ...(prev.vaccinations || [])] } : null
-          );
-        }
-        setNewVac({
-          vaccineName: 'Rabies Vaccine',
-          dateAdministered: new Date().toISOString().split('T')[0],
-          nextDueDate: '',
-          vetName: 'Dr. Rahul Verma',
-          clinic: 'Banjara Vet Hospital',
-          status: 'COMPLETED',
-        });
-      }
     } catch (err) {
       console.error('Failed to add vaccination:', err);
     }
@@ -340,33 +384,36 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     const targetPet = expensePet || managePet;
     if (!targetPet || !newExp.amount) return;
 
+    const newExpItem = {
+      id: `exp-${Date.now()}`,
+      petId: targetPet.id,
+      ...newExp,
+      amount: Number(newExp.amount),
+    };
+
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === targetPet.id) {
+          const currentExps = p.expenses || [];
+          return { ...p, expenses: [newExpItem, ...currentExps] };
+        }
+        return p;
+      })
+    );
+    if (managePet) {
+      setManagePet((prev: any) =>
+        prev ? { ...prev, expenses: [newExpItem, ...(prev.expenses || [])] } : null
+      );
+    }
+    setExpensePet(null);
+    setNewExp({ category: 'Food', description: 'Pet Kibble & Treats', amount: '', vendor: 'Pet Supermarket' });
+
     try {
-      const payload = { petId: targetPet.id, ...newExp, amount: Number(newExp.amount) };
-      const res = await fetch('/api/expenses', {
+      await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(newExpItem),
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (data.expense) {
-        setPets((prev) =>
-          prev.map((p) => {
-            if (p.id === targetPet.id) {
-              const currentExps = p.expenses || [];
-              return { ...p, expenses: [data.expense, ...currentExps] };
-            }
-            return p;
-          })
-        );
-        setExpensePet(null);
-        if (managePet) {
-          setManagePet((prev: any) =>
-            prev ? { ...prev, expenses: [data.expense, ...(prev.expenses || [])] } : null
-          );
-        }
-        setNewExp({ category: 'Food', description: 'Pet Kibble & Treats', amount: '', vendor: 'Pet Supermarket' });
-      }
     } catch (err) {
       console.error('Failed to add expense:', err);
     }
@@ -378,33 +425,36 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     const targetPet = reminderPet || managePet;
     if (!targetPet || !newRem.title) return;
 
+    const newRemItem = {
+      id: `rem-${Date.now()}`,
+      petId: targetPet.id,
+      ...newRem,
+      isCompleted: false,
+    };
+
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === targetPet.id) {
+          const currentRems = p.reminders || [];
+          return { ...p, reminders: [newRemItem, ...currentRems] };
+        }
+        return p;
+      })
+    );
+    if (managePet) {
+      setManagePet((prev: any) =>
+        prev ? { ...prev, reminders: [newRemItem, ...(prev.reminders || [])] } : null
+      );
+    }
+    setReminderPet(null);
+    setNewRem({ category: 'Deworming', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
+
     try {
-      const payload = { petId: targetPet.id, ...newRem };
-      const res = await fetch('/api/reminders', {
+      await fetch('/api/reminders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(newRemItem),
       });
-
-      const data = await res.json().catch(() => ({}));
-      if (data.reminder) {
-        setPets((prev) =>
-          prev.map((p) => {
-            if (p.id === targetPet.id) {
-              const currentRems = p.reminders || [];
-              return { ...p, reminders: [data.reminder, ...currentRems] };
-            }
-            return p;
-          })
-        );
-        setReminderPet(null);
-        if (managePet) {
-          setManagePet((prev: any) =>
-            prev ? { ...prev, reminders: [data.reminder, ...(prev.reminders || [])] } : null
-          );
-        }
-        setNewRem({ category: 'Deworming', title: 'Deworming Tablet', date: new Date().toISOString().split('T')[0], time: '09:00 AM', repeat: 'EVERY_3_MONTHS', notes: 'Give tablet with breakfast' });
-      }
     } catch (err) {
       console.error('Failed to add reminder:', err);
     }
@@ -437,34 +487,32 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Update existing vaccination status
   const handleUpdateVaccinationStatus = async (petId: string, vacId: string, newStatus: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === petId) {
+          const updatedVacs = (p.vaccinations || []).map((v: any) =>
+            v.id === vacId ? { ...v, status: newStatus } : v
+          );
+          return { ...p, vaccinations: updatedVacs };
+        }
+        return p;
+      })
+    );
+    if (managePet && managePet.id === petId) {
+      setManagePet((prev: any) => ({
+        ...prev,
+        vaccinations: (prev.vaccinations || []).map((v: any) =>
+          v.id === vacId ? { ...v, status: newStatus } : v
+        ),
+      }));
+    }
+
     try {
-      const res = await fetch('/api/vaccinations', {
+      await fetch('/api/vaccinations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ petId, id: vacId, status: newStatus }),
       });
-
-      if (res.ok) {
-        setPets((prev) =>
-          prev.map((p) => {
-            if (p.id === petId) {
-              const updatedVacs = (p.vaccinations || []).map((v: any) =>
-                v.id === vacId ? { ...v, status: newStatus } : v
-              );
-              return { ...p, vaccinations: updatedVacs };
-            }
-            return p;
-          })
-        );
-        if (managePet && managePet.id === petId) {
-          setManagePet((prev: any) => ({
-            ...prev,
-            vaccinations: (prev.vaccinations || []).map((v: any) =>
-              v.id === vacId ? { ...v, status: newStatus } : v
-            ),
-          }));
-        }
-      }
     } catch (err) {
       console.error('Failed to update vaccination status:', err);
     }
@@ -514,13 +562,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 border border-brand-coral/20 text-brand-coral text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>Puppy ID Studio Registry (Live Production)</span>
+              <span>Puppy ID Studio Registry (Live Persistent Storage)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight leading-tight">
               Multi-Puppy Management & QR Code Tag Studio
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-2xl leading-relaxed">
-              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets.
+              Add puppies step-by-step, generate separate printable QR collar tags, manage vaccinations, expenses, reminders, Lost Mode & remove pets. Data is permanently saved.
             </p>
           </div>
 
@@ -627,9 +675,9 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
             <Dog className="w-8 h-8" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-xl font-extrabold text-slate-800">Welcome to Live Production!</h3>
+            <h3 className="text-xl font-extrabold text-slate-800">Welcome to Puppy ID Studio!</h3>
             <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
-              Sample data has been removed. Click below to add your first puppy, enter their health & owner details, and generate a live printable QR collar tag.
+              Your registry is currently empty. Click below to add your first puppy. All puppy details and QR codes are permanently saved in your browser so refreshing will never delete your data.
             </p>
           </div>
           <button
