@@ -5,7 +5,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   try {
     const data = await req.json().catch(() => ({}));
     const petId = params.id;
-    const pet = updatePetInStore(petId, data) || toggleLostModeInStore(petId, !!data.isLost);
+    const pet = (await updatePetInStore(petId, data)) || (await toggleLostModeInStore(petId, !!data.isLost));
     return NextResponse.json({ success: true, pet });
   } catch (err) {
     console.error('Lost mode toggle error:', err);
