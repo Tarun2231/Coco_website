@@ -6,6 +6,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { QRCodeCard } from '@/components/dashboard/QRCodeCard';
 import { RemindersWidget } from '@/components/dashboard/RemindersWidget';
 import { ExpensesWidget } from '@/components/dashboard/ExpensesWidget';
+import { ActivityLogWidget } from '@/components/dashboard/ActivityLogWidget';
 import { LostModeBanner } from '@/components/pet/LostModeBanner';
 import { AddPetModal } from '@/components/pet/AddPetModal';
 import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode } from 'lucide-react';
@@ -164,15 +165,20 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Column 1: QR Code Card */}
-          <QRCodeCard petName={currentPet.name} publicId={currentPet.publicId} />
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Column 1: QR Code Card */}
+            <QRCodeCard petName={currentPet.name} publicId={currentPet.publicId} />
 
-          {/* Column 2: Upcoming Reminders Widget */}
-          <RemindersWidget reminders={reminders} />
+            {/* Column 2: Upcoming Reminders Widget */}
+            <RemindersWidget reminders={reminders} />
 
-          {/* Column 3: Recent Expenses Widget */}
-          <ExpensesWidget expenses={expenses} />
+            {/* Column 3: Recent Expenses Widget */}
+            <ExpensesWidget expenses={expenses} />
+          </div>
+
+          {/* Activity History Log Widget */}
+          <ActivityLogWidget petName={currentPet?.name} />
         </div>
       )}
 

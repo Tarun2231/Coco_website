@@ -172,7 +172,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [showActivityLog, setShowActivityLog] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(true);
   const [managePet, setManagePet] = useState<any | null>(null);
   const [manageTab, setManageTab] = useState<string>('EDIT');
   const [editingPet, setEditingPet] = useState<any | null>(null);
