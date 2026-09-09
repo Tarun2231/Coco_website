@@ -45,7 +45,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         } catch (e) {
           console.error('Failed to parse localStorage pets:', e);
         }
@@ -56,18 +56,37 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Cross-device sync fetcher: Overwrites state with single source of truth from Cloud Store
+  // Cross-device sync fetcher: Merges cloud pets with local pets without losing new entries
   const syncServerPets = useCallback(async () => {
     try {
       setIsSyncing(true);
       const res = await fetch('/api/pets', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.pets) && data.pets.length > 0) {
-          setPets(data.pets);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
-          }
+        if (Array.isArray(data.pets)) {
+          setPets((prevLocal) => {
+            const map = new Map<string, any>();
+            // Cloud server pets are added
+            data.pets.forEach((p: any) => map.set(p.id, p));
+
+            // Preserve local pets not yet on server and upload them in background
+            prevLocal.forEach((p: any) => {
+              if (!map.has(p.id)) {
+                map.set(p.id, p);
+                fetch('/api/pets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(p),
+                }).catch(console.error);
+              }
+            });
+
+            const merged = Array.from(map.values());
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
+            }
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -77,13 +96,20 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   }, []);
 
-  // Sync on mount & on window focus (so mobile additions show up on laptop immediately)
+  // Sync on mount, window focus & automatic 8-second interval polling for instant mobile-to-laptop sync
   useEffect(() => {
     syncServerPets();
 
+    const timer = setInterval(() => {
+      syncServerPets();
+    }, 8000);
+
     const handleFocus = () => syncServerPets();
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [syncServerPets]);
 
   // Keep localStorage updated on every state mutation
@@ -252,10 +278,19 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit New Puppy (Step 4)
+  // Submit New Puppy (INSTANT ADDITION & CLOUD SYNC)
   const handleAddPuppySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPetData.name) {
+    if (step < 4) {
+      if (step === 1 && !newPetData.name.trim()) {
+        alert('Please enter Puppy Name');
+        return;
+      }
+      setStep(step + 1);
+      return;
+    }
+
+    if (!newPetData.name.trim()) {
       alert('Please enter Puppy Name');
       return;
     }
@@ -313,19 +348,16 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         },
       };
 
-      // Add to React State & LocalStorage immediately
-      setPets((prev) => [newPet, ...prev]);
-
-      const res = await fetch('/api/pets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPet),
+      // 1. Immediately prepend to local state & save to localStorage
+      setPets((prev) => {
+        const updated = [newPet, ...prev];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('puppy_id_pets', JSON.stringify(updated));
+        }
+        return updated;
       });
 
-      if (res.ok) {
-        syncServerPets();
-      }
-
+      // 2. Immediately close modal & reset step so user sees new card & QR code!
       setIsAddModalOpen(false);
       setStep(1);
       setNewPetData({
@@ -348,6 +380,15 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         clinic: 'Banjara Vet Hospital',
         vaccineStatus: 'COMPLETED',
       });
+
+      // 3. Post to cloud API asynchronously
+      await fetch('/api/pets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPet),
+      });
+
+      syncServerPets();
     } catch (err) {
       console.error('Failed to add puppy:', err);
     } finally {
@@ -1426,7 +1467,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     <button
                       type="button"
                       onClick={() => {
-                        if (!newPetData.name) {
+                        if (!newPetData.name.trim()) {
                           alert('Please enter Puppy Name');
                           return;
                         }
@@ -1619,8 +1660,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                     <button type="button" onClick={() => setStep(3)} className="px-4 py-2 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200">
                       &larr; Back
                     </button>
-                    <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral border border-brand-coral/30 font-black text-xs rounded-xl shadow-xs">
-                      {isSubmitting ? 'Generating QR Code...' : 'Add Puppy & Generate QR'}
+                    <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 bg-brand-coral hover:bg-brand-coral/90 text-white font-black text-xs rounded-xl shadow-md transition-colors">
+                      {isSubmitting ? 'Generating QR Code...' : '➕ Add Puppy & Generate QR'}
                     </button>
                   </div>
                 </div>
