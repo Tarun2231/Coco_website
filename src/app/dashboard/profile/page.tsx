@@ -2,7 +2,7 @@ import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import { Dog, Shield, Edit3, Calendar, Weight, Tag, AlertCircle, Plus } from 'lucide-react';
+import { Dog, Shield, Edit3, Plus } from 'lucide-react';
 import { formatDate, calculateAge } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
@@ -10,29 +10,9 @@ import { Button } from '@/components/ui/Button';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const fallbackBrunoPet = {
-  id: 'bruno-demo-id',
-  publicId: 'bruno',
-  name: 'Bruno',
-  species: 'Dog',
-  breed: 'Golden Retriever',
-  gender: 'Male',
-  dob: '2025-05-15',
-  color: 'Golden',
-  weight: '28 kg',
-  microchipId: '988 000 123 456 789',
-  registrationNo: 'PET-HYD-2025-0891',
-  licenseNo: 'LIC-99210-A',
-  photo: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&h=600&fit=crop',
-  isLost: true,
-  importantNotes: 'Bruno is a friendly boy. He loves people and kids. Please call my family immediately.',
-};
-
 export default async function PetProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-
-  const isDemoAccount = user.email === 'owner@puppyid.com' || user.id === 'demo-owner-id';
 
   let pet: any = null;
   try {
@@ -51,10 +31,6 @@ export default async function PetProfilePage() {
     console.error('Pet profile fetch error:', err);
   }
 
-  if (!pet && isDemoAccount) {
-    pet = fallbackBrunoPet;
-  }
-
   if (!pet) {
     return (
       <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 max-w-md mx-auto my-8 space-y-4 shadow-sm animate-fadeIn">
@@ -63,7 +39,7 @@ export default async function PetProfilePage() {
         </div>
         <h2 className="text-xl font-extrabold text-slate-900">No Puppy Profile Created Yet</h2>
         <p className="text-xs text-slate-500 font-medium leading-relaxed">
-          You haven&apos;t added any pets to your account yet. Visit your dashboard to add your dog and generate a custom digital QR collar ID tag.
+          Your dashboard is clean. Click below to add your puppy and generate a custom digital QR collar tag.
         </p>
         <Link href="/dashboard" className="block pt-2">
           <Button variant="primary" className="font-bold shadow-md shadow-brand-coral/20 px-6" icon={<Plus className="w-4 h-4" />}>
@@ -146,15 +122,15 @@ export default async function PetProfilePage() {
             <div className="bg-slate-50 p-4 rounded-2xl space-y-2 text-xs border border-slate-100">
               <div className="flex justify-between py-1 border-b border-slate-200/50">
                 <span className="text-slate-500 font-medium">Microchip ID</span>
-                <span className="font-mono font-bold text-slate-900">{pet.microchipId || '988 000 123 456 789'}</span>
+                <span className="font-mono font-bold text-slate-900">{pet.microchipId || 'None'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-200/50">
                 <span className="text-slate-500 font-medium">Registration No.</span>
-                <span className="font-mono font-bold text-slate-900">{pet.registrationNo || 'PET-HYD-2025-0891'}</span>
+                <span className="font-mono font-bold text-slate-900">{pet.registrationNo || 'None'}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-500 font-medium">License No.</span>
-                <span className="font-mono font-bold text-slate-900">{pet.licenseNo || 'LIC-99210-A'}</span>
+                <span className="font-mono font-bold text-slate-900">{pet.licenseNo || 'None'}</span>
               </div>
             </div>
           </div>
@@ -163,7 +139,7 @@ export default async function PetProfilePage() {
         <div className="space-y-2">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Important Notes</h3>
           <p className="text-xs text-slate-700 bg-amber-50/80 p-4 rounded-2xl border border-amber-200/60 leading-relaxed font-medium">
-            &quot;{pet.importantNotes || `${pet.name} is a friendly boy. He loves people and kids. Please call my family immediately.`}&quot;
+            &quot;{pet.importantNotes || `${pet.name} is a friendly puppy. Please call my family if found.`}&quot;
           </p>
         </div>
       </div>
