@@ -59,11 +59,11 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ petName, publicId }) => 
           value={publicUrl}
           size={160}
           bgColor={'#ffffff'}
-          fgColor={'#182232'}
+          fgColor={'#000000'}
           level={'H'}
           includeMargin={true}
           imageSettings={{
-            src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23EF5DA8"><path d="M12 2a2.5 2.5 0 0 1 2.5 2.5c0 1.38-1.12 2.5-2.5 2.5S9.5 5.88 9.5 4.5 10.62 2 12 2zm-5.5 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm11 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM4.5 12a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm15 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-7.5-3c3 0 6 2.5 6 6.5 0 2.5-2 4.5-4.5 4.5h-3C8 20 6 18 6 15.5c0-4 3-6.5 6-6.5z"/></svg>',
+            src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23000000"><path d="M12 2a2.5 2.5 0 0 1 2.5 2.5c0 1.38-1.12 2.5-2.5 2.5S9.5 5.88 9.5 4.5 10.62 2 12 2zm-5.5 4a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm11 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM4.5 12a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm15 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-7.5-3c3 0 6 2.5 6 6.5 0 2.5-2 4.5-4.5 4.5h-3C8 20 6 18 6 15.5c0-4 3-6.5 6-6.5z"/></svg>',
             x: undefined,
             y: undefined,
             height: 32,

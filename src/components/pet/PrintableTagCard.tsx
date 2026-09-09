@@ -71,7 +71,7 @@ export const PrintableTagCard: React.FC<PrintableTagCardProps> = ({
             value={publicUrl}
             size={130}
             bgColor={'#ffffff'}
-            fgColor={'#182232'}
+            fgColor={'#000000'}
             level={'H'}
           />
         </div>
