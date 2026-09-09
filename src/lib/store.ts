@@ -37,6 +37,16 @@ export interface ReminderRecord {
   isCompleted: boolean;
 }
 
+export interface ActivityLogRecord {
+  id: string;
+  timestamp: string;
+  formattedTime: string;
+  type: 'PUPPY_ADDED' | 'VACCINE_ADDED' | 'REMINDER_ADDED' | 'EXPENSE_ADDED' | 'PET_UPDATED' | 'LOST_MODE_TOGGLED' | 'PET_DELETED';
+  title: string;
+  details: string;
+  petName: string;
+}
+
 export interface PetRecord {
   id: string;
   publicId: string;
@@ -82,35 +92,43 @@ const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
 
 const globalForStore = globalThis as unknown as {
   petsStore: PetRecord[] | undefined;
+  activityStore: ActivityLogRecord[] | undefined;
 };
 
 if (!globalForStore.petsStore) {
   globalForStore.petsStore = [];
 }
+if (!globalForStore.activityStore) {
+  globalForStore.activityStore = [];
+}
 
 export const petsStore = globalForStore.petsStore;
+export const activityStore = globalForStore.activityStore;
 
 // Sync from Cloud Store
-export async function syncFromCloudStore(): Promise<PetRecord[]> {
+export async function syncFromCloudStore(): Promise<{ pets: PetRecord[]; activities: ActivityLogRecord[] }> {
   try {
     const res = await fetch(CLOUD_API_URL, { cache: 'no-store' });
     if (res.ok) {
       const body = await res.json();
-      if (body?.data?.pets && Array.isArray(body.data.pets)) {
-        globalForStore.petsStore = body.data.pets;
-        return body.data.pets;
-      }
+      const pets = body?.data?.pets && Array.isArray(body.data.pets) ? body.data.pets : globalForStore.petsStore || [];
+      const activities = body?.data?.activities && Array.isArray(body.data.activities) ? body.data.activities : globalForStore.activityStore || [];
+      globalForStore.petsStore = pets;
+      globalForStore.activityStore = activities;
+      return { pets, activities };
     }
   } catch (err) {
     console.error('Cloud store sync GET error:', err);
   }
-  return globalForStore.petsStore || [];
+  return { pets: globalForStore.petsStore || [], activities: globalForStore.activityStore || [] };
 }
 
 // Push to Cloud Store (Sanitizes heavy base64 photos so restful-api.dev 128KB limit never fails)
-export async function saveToCloudStore(pets: PetRecord[]): Promise<void> {
+export async function saveToCloudStore(pets: PetRecord[], activities?: ActivityLogRecord[]): Promise<void> {
   try {
     globalForStore.petsStore = pets;
+    if (activities) globalForStore.activityStore = activities;
+
     const sanitizedPets = pets.map((p) => {
       let photo = p.photo;
       if (photo && photo.length > 2000 && photo.startsWith('data:')) {
@@ -119,12 +137,16 @@ export async function saveToCloudStore(pets: PetRecord[]): Promise<void> {
       return { ...p, photo };
     });
 
+    const currentActivities = activities || globalForStore.activityStore || [];
+    // Keep last 50 activities for performance
+    const trimmedActivities = currentActivities.slice(0, 50);
+
     const res = await fetch(CLOUD_API_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Puppy ID Store',
-        data: { pets: sanitizedPets },
+        data: { pets: sanitizedPets, activities: trimmedActivities },
       }),
     });
     if (!res.ok) {
@@ -145,7 +167,7 @@ export function getPetById(idOrPublicId: string): PetRecord | undefined {
 }
 
 export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
 
   const cleanName = String(data.name || 'Puppy').trim();
   const slugBase = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -192,31 +214,57 @@ export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord
   const existingIdx = currentPets.findIndex((p) => p.id === newPet.id || p.publicId === newPet.publicId);
   if (existingIdx === -1) {
     currentPets.unshift(newPet);
+
+    // Create activity log
+    const now = new Date();
+    const newActivity: ActivityLogRecord = {
+      id: `act-${Date.now()}`,
+      timestamp: now.toISOString(),
+      formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      type: 'PUPPY_ADDED',
+      title: `Added New Puppy "${cleanName}"`,
+      details: `Breed: ${newPet.breed} • Gender: ${newPet.gender}`,
+      petName: cleanName,
+    };
+    activities.unshift(newActivity);
   } else {
     currentPets[existingIdx] = { ...currentPets[existingIdx], ...newPet };
   }
 
-  await saveToCloudStore(currentPets);
+  await saveToCloudStore(currentPets, activities);
   return newPet;
 }
 
 export async function updatePetInStore(petId: string, updates: Partial<PetRecord>): Promise<PetRecord | undefined> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   const index = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
   if (index !== -1) {
     currentPets[index] = { ...currentPets[index], ...updates };
-    await saveToCloudStore(currentPets);
+    await saveToCloudStore(currentPets, activities);
     return currentPets[index];
   }
   return undefined;
 }
 
 export async function deletePetFromStore(petId: string): Promise<boolean> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   const idx = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
   if (idx !== -1) {
+    const petName = currentPets[idx].name;
     currentPets.splice(idx, 1);
-    await saveToCloudStore(currentPets);
+
+    const now = new Date();
+    activities.unshift({
+      id: `act-${Date.now()}`,
+      timestamp: now.toISOString(),
+      formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      type: 'PET_DELETED',
+      title: `Removed Puppy "${petName}"`,
+      details: `Pet deleted from registry`,
+      petName,
+    });
+
+    await saveToCloudStore(currentPets, activities);
     return true;
   }
   return false;
@@ -227,7 +275,7 @@ export async function toggleLostModeInStore(petId: string, isLost: boolean): Pro
 }
 
 export async function addVaccinationToStore(petId: string, vacData: Partial<VaccinationRecord>): Promise<VaccinationRecord> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (!pet && currentPets.length > 0) {
     pet = currentPets[0];
@@ -250,14 +298,25 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
     const exists = pet.vaccinations.some((v) => v.id === newVac.id);
     if (!exists) {
       pet.vaccinations.unshift(newVac);
+
+      const now = new Date();
+      activities.unshift({
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'VACCINE_ADDED',
+        title: `Vaccine Logged: "${newVac.vaccineName}"`,
+        details: `Given: ${newVac.dateAdministered} • Vet: ${newVac.vetName || 'Dr. Verma'}`,
+        petName: pet.name,
+      });
     }
-    await saveToCloudStore(currentPets);
+    await saveToCloudStore(currentPets, activities);
   }
   return newVac;
 }
 
 export async function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): Promise<VaccinationRecord | undefined> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
@@ -265,7 +324,7 @@ export async function updateVaccinationInStore(petId: string, vacId: string, upd
     const idx = pet.vaccinations.findIndex((v) => v.id === vacId);
     if (idx !== -1) {
       pet.vaccinations[idx] = { ...pet.vaccinations[idx], ...updates };
-      await saveToCloudStore(currentPets);
+      await saveToCloudStore(currentPets, activities);
       return pet.vaccinations[idx];
     }
   }
@@ -273,7 +332,7 @@ export async function updateVaccinationInStore(petId: string, vacId: string, upd
 }
 
 export async function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
@@ -291,13 +350,25 @@ export async function addExpenseToStore(petId: string, expData: Partial<ExpenseR
   if (pet) {
     if (!pet.expenses) pet.expenses = [];
     pet.expenses.unshift(newExp);
-    await saveToCloudStore(currentPets);
+
+    const now = new Date();
+    activities.unshift({
+      id: `act-${Date.now()}`,
+      timestamp: now.toISOString(),
+      formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      type: 'EXPENSE_ADDED',
+      title: `Expense Logged: ₹${newExp.amount} (${newExp.category})`,
+      details: `${newExp.description || 'Pet Expense'}`,
+      petName: pet.name,
+    });
+
+    await saveToCloudStore(currentPets, activities);
   }
   return newExp;
 }
 
 export async function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): Promise<ReminderRecord> {
-  const currentPets = await syncFromCloudStore();
+  const { pets: currentPets, activities } = await syncFromCloudStore();
   let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
@@ -316,7 +387,19 @@ export async function addReminderToStore(petId: string, remData: Partial<Reminde
   if (pet) {
     if (!pet.reminders) pet.reminders = [];
     pet.reminders.unshift(newRem);
-    await saveToCloudStore(currentPets);
+
+    const now = new Date();
+    activities.unshift({
+      id: `act-${Date.now()}`,
+      timestamp: now.toISOString(),
+      formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      type: 'REMINDER_ADDED',
+      title: `Care Reminder Saved: "${newRem.title}"`,
+      details: `Scheduled for: ${newRem.date}`,
+      petName: pet.name,
+    });
+
+    await saveToCloudStore(currentPets, activities);
   }
   return newRem;
 }
