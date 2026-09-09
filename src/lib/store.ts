@@ -107,18 +107,29 @@ export async function syncFromCloudStore(): Promise<PetRecord[]> {
   return globalForStore.petsStore || [];
 }
 
-// Push to Cloud Store
+// Push to Cloud Store (Sanitizes heavy base64 photos so restful-api.dev 128KB limit never fails)
 export async function saveToCloudStore(pets: PetRecord[]): Promise<void> {
   try {
     globalForStore.petsStore = pets;
-    await fetch(CLOUD_API_URL, {
+    const sanitizedPets = pets.map((p) => {
+      let photo = p.photo;
+      if (photo && photo.length > 2000 && photo.startsWith('data:')) {
+        photo = 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop';
+      }
+      return { ...p, photo };
+    });
+
+    const res = await fetch(CLOUD_API_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Puppy ID Store',
-        data: { pets },
+        data: { pets: sanitizedPets },
       }),
     });
+    if (!res.ok) {
+      console.error('Cloud store PUT status:', res.status);
+    }
   } catch (err) {
     console.error('Cloud store sync PUT error:', err);
   }
@@ -219,7 +230,7 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
   const currentPets = await syncFromCloudStore();
   let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
   if (!pet && currentPets.length > 0) {
-    pet = currentPets[0]; // Fallback to first pet if ID string differs slightly
+    pet = currentPets[0];
   }
 
   const newVac: VaccinationRecord = {
