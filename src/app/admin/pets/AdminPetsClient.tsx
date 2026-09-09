@@ -172,6 +172,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isQuickVacModalOpen, setIsQuickVacModalOpen] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(true);
   const [managePet, setManagePet] = useState<any | null>(null);
   const [manageTab, setManageTab] = useState<string>('EDIT');
@@ -184,11 +185,21 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const [docPet, setDocPet] = useState<any | null>(null);
   const [deletingPet, setDeletingPet] = useState<any | null>(null);
 
+  // Quick Vaccine Modal Form State
+  const [quickVacPetId, setQuickVacPetId] = useState<string>('');
+  const [quickVacName, setQuickVacName] = useState<string>('Rabies Anti-Rabies Vaccine');
+  const [quickDateAdmin, setQuickDateAdmin] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [quickNextDue, setQuickNextDue] = useState<string>('');
+  const [quickVetName, setQuickVetName] = useState<string>('Dr. Rahul Verma');
+  const [quickClinic, setQuickClinic] = useState<string>('Banjara Vet Hospital');
+  const [quickVacStatus, setQuickVacStatus] = useState<string>('COMPLETED');
+  const [quickAddReminder, setQuickAddReminder] = useState<boolean>(true);
+
   // Status feedback notices
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
-  // QR Accent Color fixed strictly to Royal Blue (#2563EB)
-  const qrFgColor = '#2563EB';
+  // QR Accent Color fixed strictly to Pure Black (#000000)
+  const qrFgColor = '#000000';
 
   // Add Step-by-Step Form state
   const [step, setStep] = useState(1);
@@ -476,6 +487,105 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       console.error('Failed to add puppy:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Submit Quick Add Vaccine Modal Form (WITH DROPDOWN PET SELECT & REMINDER ALERT)
+  const handleQuickVacSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetPetId = quickVacPetId || (pets.length > 0 ? pets[0].id : '');
+    const targetPet = pets.find((p) => p.id === targetPetId || p.publicId === targetPetId);
+    if (!targetPet) {
+      alert('Please select a puppy');
+      return;
+    }
+
+    const newVacItem = {
+      id: `vac-${Date.now()}`,
+      petId: targetPet.id,
+      vaccineName: quickVacName,
+      dateAdministered: quickDateAdmin,
+      nextDueDate: quickNextDue || undefined,
+      vetName: quickVetName,
+      clinic: quickClinic,
+      status: quickVacStatus,
+    };
+
+    const newRemItem = quickAddReminder && quickNextDue ? {
+      id: `rem-${Date.now()}`,
+      petId: targetPet.id,
+      category: 'Vaccination',
+      title: `${quickVacName} Booster Alert`,
+      date: quickNextDue,
+      time: '09:00 AM',
+      repeat: 'ONCE',
+      isCompleted: false,
+    } : null;
+
+    let updatedTargetPet: any = null;
+
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.id === targetPet.id || p.publicId === targetPet.publicId) {
+          const currentVacs = p.vaccinations || [];
+          const currentRems = p.reminders || [];
+          updatedTargetPet = {
+            ...p,
+            vaccinations: [newVacItem, ...currentVacs],
+            reminders: newRemItem ? [newRemItem, ...currentRems] : currentRems,
+          };
+          return updatedTargetPet;
+        }
+        return p;
+      })
+    );
+
+    addActivityEntry(
+      'VACCINE_ADDED',
+      `Vaccine Logged: "${quickVacName}"`,
+      `Given: ${quickDateAdmin} • Vet: ${quickVetName}`,
+      targetPet.name
+    );
+
+    if (newRemItem) {
+      addActivityEntry(
+        'REMINDER_ADDED',
+        `Booster Reminder Scheduled: "${newRemItem.title}"`,
+        `Due Date: ${quickNextDue}`,
+        targetPet.name
+      );
+    }
+
+    setIsQuickVacModalOpen(false);
+    setSaveNotice(`✅ Vaccine & Care Record saved for ${targetPet.name} and synced!`);
+    setTimeout(() => setSaveNotice(null), 4000);
+
+    try {
+      await fetch('/api/vaccinations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newVacItem),
+      });
+
+      if (newRemItem) {
+        await fetch('/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRemItem),
+        });
+      }
+
+      if (updatedTargetPet) {
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedTargetPet),
+        });
+      }
+
+      syncServerPets();
+    } catch (err) {
+      console.error('Quick vac submit error:', err);
     }
   };
 
@@ -860,6 +970,17 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
           <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
             <button
+              onClick={() => {
+                if (pets.length > 0) setQuickVacPetId(pets[0].id);
+                setIsQuickVacModalOpen(true);
+              }}
+              className="w-full sm:w-auto font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs shrink-0"
+            >
+              <Syringe className="w-4 h-4 text-emerald-600" />
+              <span>💉 Quick Add Vaccine & Reminder</span>
+            </button>
+
+            <button
               onClick={() => setShowActivityLog(!showActivityLog)}
               className={`w-full sm:w-auto px-4 py-2.5 sm:py-3 font-bold text-xs rounded-2xl border flex items-center justify-center gap-1.5 transition-colors ${
                 showActivityLog
@@ -1192,6 +1313,150 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           );
         })}
       </div>
+
+      {/* ==================== QUICK ADD VACCINE & CARE REMINDER MODAL ==================== */}
+      {isQuickVacModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white text-slate-800 border border-slate-200 rounded-3xl p-4 sm:p-7 max-w-lg w-[95%] sm:w-full space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  <Syringe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-800">Quick Add Vaccine & Care Record</h2>
+                  <p className="text-[11px] text-slate-500 font-medium">Select pet & log immunization with live device sync</p>
+                </div>
+              </div>
+              <button onClick={() => setIsQuickVacModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickVacSubmit} className="space-y-3.5">
+              {/* Pet Dropdown Selection */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Select Target Puppy *</label>
+                <select
+                  value={quickVacPetId || (pets.length > 0 ? pets[0].id : '')}
+                  onChange={(e) => setQuickVacPetId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-900 bg-slate-50/80 focus:ring-2 focus:ring-emerald-500"
+                >
+                  {pets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      🐶 {p.name} ({p.breed})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Vaccine Selection */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Vaccine Name *</label>
+                <select
+                  value={quickVacName}
+                  onChange={(e) => setQuickVacName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 bg-white"
+                >
+                  <option value="Rabies Anti-Rabies Vaccine">Rabies Anti-Rabies Vaccine</option>
+                  <option value="DHPP Core Vaccine">DHPP (Distemper, Hepatitis, Parvo, Parainfluenza)</option>
+                  <option value="Annual Booster Shot">Annual Immunity Booster</option>
+                  <option value="Bordetella Kennel Cough">Bordetella Kennel Cough</option>
+                  <option value="Leptospirosis Vaccine">Leptospirosis Vaccine</option>
+                  <option value="Lyme Disease Vaccine">Lyme Disease Vaccine</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Date Given *</label>
+                  <input
+                    type="date"
+                    required
+                    value={quickDateAdmin}
+                    onChange={(e) => setQuickDateAdmin(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Next Due Date</label>
+                  <input
+                    type="date"
+                    value={quickNextDue}
+                    onChange={(e) => setQuickNextDue(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Veterinarian</label>
+                  <input
+                    type="text"
+                    value={quickVetName}
+                    onChange={(e) => setQuickVetName(e.target.value)}
+                    placeholder="Dr. Rahul Verma"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Clinic / Hospital</label>
+                  <input
+                    type="text"
+                    value={quickClinic}
+                    onChange={(e) => setQuickClinic(e.target.value)}
+                    placeholder="Banjara Vet Hospital"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Status</label>
+                <select
+                  value={quickVacStatus}
+                  onChange={(e) => setQuickVacStatus(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                >
+                  <option value="COMPLETED">✅ COMPLETED (Administered)</option>
+                  <option value="UPCOMING">⏰ UPCOMING (Scheduled Booster)</option>
+                  <option value="OVERDUE">⚠️ OVERDUE (Needs Attention)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 bg-amber-50/70 p-3 rounded-2xl border border-amber-200/80">
+                <input
+                  type="checkbox"
+                  id="quick-reminder-chk"
+                  checked={quickAddReminder}
+                  onChange={(e) => setQuickAddReminder(e.target.checked)}
+                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <label htmlFor="quick-reminder-chk" className="text-xs font-bold text-amber-900 cursor-pointer">
+                  🔔 Auto-create Care Booster Alert for Next Due Date
+                </label>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickVacModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 text-slate-700 font-extrabold text-xs rounded-xl border border-slate-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition-colors"
+                >
+                  💾 Save & Sync Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ==================== SLEEK PET MANAGEMENT HUB MODAL ==================== */}
       {managePet && (
