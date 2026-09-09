@@ -1109,14 +1109,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                   </button>
                 </div>
 
-                {/* Unique High-Contrast Printable QR Code Container (Strictly Royal Blue #2563EB Only) */}
-                <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-blue-100/90">
+                {/* Unique High-Contrast Printable QR Code Container (Pure Black #000000) */}
+                <div className="my-3.5 p-3.5 bg-white rounded-2xl flex flex-col items-center justify-center text-center shadow-xs border border-slate-200">
                   <QRCodeSVG
                     id={svgId}
                     value={publicUrl}
                     size={130}
                     bgColor={'#ffffff'}
-                    fgColor={'#2563EB'}
+                    fgColor={'#000000'}
                     level={'H'}
                     includeMargin={true}
                   />
