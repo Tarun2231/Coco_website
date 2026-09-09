@@ -28,6 +28,8 @@ import {
   RefreshCw,
   CheckCircle2,
   Calendar,
+  History,
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { getPetPublicUrl } from '@/lib/qr';
@@ -54,7 +56,54 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     return initialPets;
   });
 
+  // Persistent Activity Log Tracker
+  const [activityLogs, setActivityLogs] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_activities');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return [
+      {
+        id: 'act-init-1',
+        timestamp: new Date().toISOString(),
+        formattedTime: `${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'PUPPY_ADDED',
+        title: 'Added New Puppy "Bruno"',
+        details: 'Breed: Golden Retriever • Gender: Male',
+        petName: 'Bruno',
+      },
+    ];
+  });
+
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Helper to append a timestamped activity log entry
+  const addActivityEntry = (type: string, title: string, details: string, petName: string) => {
+    const now = new Date();
+    const entry = {
+      id: `act-${Date.now()}`,
+      timestamp: now.toISOString(),
+      formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      type,
+      title,
+      details,
+      petName,
+    };
+    setActivityLogs((prev) => {
+      const updated = [entry, ...prev];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('puppy_id_activities', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
 
   // Cross-device sync fetcher: Merges cloud pets with local pets without losing new entries
   const syncServerPets = useCallback(async () => {
@@ -66,10 +115,8 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         if (Array.isArray(data.pets)) {
           setPets((prevLocal) => {
             const map = new Map<string, any>();
-            // Cloud server pets are added
             data.pets.forEach((p: any) => map.set(p.id, p));
 
-            // Preserve local pets not yet on server and upload them in background
             prevLocal.forEach((p: any) => {
               if (!map.has(p.id)) {
                 map.set(p.id, p);
@@ -96,7 +143,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   }, []);
 
-  // Sync on mount, window focus & automatic 8-second interval polling for instant mobile-to-laptop sync
+  // Sync on mount, window focus & automatic 8-second interval polling
   useEffect(() => {
     syncServerPets();
 
@@ -125,6 +172,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
   const [managePet, setManagePet] = useState<any | null>(null);
   const [manageTab, setManageTab] = useState<string>('EDIT');
   const [editingPet, setEditingPet] = useState<any | null>(null);
@@ -158,7 +206,6 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     licenseNo: '',
     photo: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop',
     importantNotes: '',
-    // Initial vaccination
     vaccineName: 'Rabies Anti-Rabies Vaccine',
     dateAdministered: new Date().toISOString().split('T')[0],
     nextDueDate: '',
@@ -209,9 +256,20 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const toggleLostStatus = async (petId: string, currentStatus: boolean) => {
+    const targetPet = pets.find((p) => p.id === petId);
     setPets((prev) =>
       prev.map((p) => (p.id === petId ? { ...p, isLost: !currentStatus } : p))
     );
+
+    if (targetPet) {
+      addActivityEntry(
+        'LOST_MODE_TOGGLED',
+        `Toggled Lost Mode: ${!currentStatus ? 'ACTIVE' : 'SAFE'}`,
+        `Emergency lost mode turned ${!currentStatus ? 'ON' : 'OFF'} for ${targetPet.name}`,
+        targetPet.name
+      );
+    }
+
     try {
       await fetch(`/api/pets/${petId}/lost`, {
         method: 'POST',
@@ -228,7 +286,17 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const handleDeletePet = async () => {
     if (!deletingPet) return;
     const targetId = deletingPet.id;
+    const targetName = deletingPet.name;
+
     setPets((prev) => prev.filter((p) => p.id !== targetId));
+
+    addActivityEntry(
+      'PET_DELETED',
+      `Removed Puppy "${targetName}"`,
+      `Pet permanently removed from registry`,
+      targetName
+    );
+
     setDeletingPet(null);
     setManagePet(null);
     try {
@@ -278,7 +346,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit New Puppy (INSTANT ADDITION & CLOUD SYNC)
+  // Submit New Puppy (INSTANT ADDITION & ACTIVITY LOGGING)
   const handleAddPuppySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (step < 4) {
@@ -348,7 +416,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         },
       };
 
-      // 1. Immediately prepend to local state & save to localStorage
+      // Prepend to local state
       setPets((prev) => {
         const updated = [newPet, ...prev];
         if (typeof window !== 'undefined') {
@@ -357,7 +425,23 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         return updated;
       });
 
-      // 2. Immediately close modal & reset step so user sees new card & QR code!
+      // Log activity
+      addActivityEntry(
+        'PUPPY_ADDED',
+        `Added New Puppy "${cleanName}"`,
+        `Breed: ${newPet.breed} • Gender: ${newPet.gender}`,
+        cleanName
+      );
+
+      if (newPetData.vaccineName) {
+        addActivityEntry(
+          'VACCINE_ADDED',
+          `Initial Vaccine Logged: "${newPetData.vaccineName}"`,
+          `Given: ${newPetData.dateAdministered} • Vet: ${newPetData.vetName}`,
+          cleanName
+        );
+      }
+
       setIsAddModalOpen(false);
       setStep(1);
       setNewPetData({
@@ -381,7 +465,6 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         vaccineStatus: 'COMPLETED',
       });
 
-      // 3. Post to cloud API asynchronously
       await fetch('/api/pets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -405,6 +488,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     setPets((prev) =>
       prev.map((p) => (p.id === targetPet.id ? { ...p, ...editFormData } : p))
     );
+
+    addActivityEntry(
+      'PET_UPDATED',
+      `Updated Details for "${editFormData.name || targetPet.name}"`,
+      `Breed: ${editFormData.breed || targetPet.breed} • Weight: ${editFormData.weight || targetPet.weight}`,
+      targetPet.name
+    );
+
     setEditingPet(null);
     setManagePet(null);
 
@@ -420,7 +511,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit Add Vaccination (WITH BULLETPROOF PERSISTENCE & CLOUD SYNC)
+  // Submit Add Vaccination (WITH ACTIVITY LOGGING & CLOUD SYNC)
   const handleAddVaccinationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = vaccinationPet || managePet;
@@ -451,6 +542,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         vaccinations: [newVacItem, ...(prev.vaccinations || [])],
       }));
     }
+
+    addActivityEntry(
+      'VACCINE_ADDED',
+      `Vaccine Record Logged: "${newVac.vaccineName}"`,
+      `Given: ${newVac.dateAdministered} • Vet: ${newVac.vetName || 'Dr. Verma'}`,
+      targetPet.name
+    );
 
     setSaveNotice('✅ Vaccination Record Saved Successfully!');
     setTimeout(() => setSaveNotice(null), 3500);
@@ -516,6 +614,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         expenses: [newExpItem, ...(prev.expenses || [])],
       }));
     }
+
+    addActivityEntry(
+      'EXPENSE_ADDED',
+      `Expense Logged: ₹${newExp.amount} (${newExp.category})`,
+      `${newExp.description || 'Pet Expense'}`,
+      targetPet.name
+    );
+
     setExpensePet(null);
     setNewExp({ category: 'Food', description: 'Pet Kibble & Treats', amount: '', vendor: 'Pet Supermarket' });
 
@@ -540,7 +646,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   };
 
-  // Submit Add Reminder (BULLETPROOF REMINDER SAVE)
+  // Submit Add Reminder (WITH ACTIVITY LOGGING)
   const handleAddReminderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const targetPet = reminderPet || managePet;
@@ -572,6 +678,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         reminders: [newRemItem, ...(prev.reminders || [])],
       }));
     }
+
+    addActivityEntry(
+      'REMINDER_ADDED',
+      `Care Reminder Saved: "${newRem.title}"`,
+      `Scheduled Date: ${newRem.date}`,
+      targetPet.name
+    );
 
     setSaveNotice('✅ Care Reminder Saved Successfully!');
     setTimeout(() => setSaveNotice(null), 3500);
@@ -646,6 +759,14 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
         documents: [docItem, ...(prev.documents || [])],
       }));
     }
+
+    addActivityEntry(
+      'PET_UPDATED',
+      `Document Saved: "${newDoc.title}"`,
+      `Type: ${newDoc.type}`,
+      targetPet.name
+    );
+
     setNewDoc({ title: 'Vaccination Certificate PDF', type: 'Vaccination Record', url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' });
   };
 
@@ -739,6 +860,18 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
 
           <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
             <button
+              onClick={() => setShowActivityLog(!showActivityLog)}
+              className={`w-full sm:w-auto px-4 py-2.5 sm:py-3 font-bold text-xs rounded-2xl border flex items-center justify-center gap-1.5 transition-colors ${
+                showActivityLog
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-xs'
+              }`}
+            >
+              <History className="w-4 h-4 text-amber-500" />
+              <span>{showActivityLog ? 'Hide History' : '📜 Activity Log'}</span>
+            </button>
+
+            <button
               onClick={() => syncServerPets()}
               disabled={isSyncing}
               title="Sync Mobile & Desktop Pets"
@@ -761,6 +894,56 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           </div>
         </div>
       </div>
+
+      {/* ==================== ACTIVITY & UPDATE HISTORY LOG PANEL ==================== */}
+      {showActivityLog && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5 text-slate-800">
+              <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                <History className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-800">Update Activity History Log</h3>
+                <p className="text-xs text-slate-500 font-medium">Real-time timestamped log of new puppies, vaccines, reminders & updates</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowActivityLog(false)}
+              className="text-slate-400 hover:text-slate-700 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {activityLogs.map((log) => (
+              <div
+                key={log.id}
+                className="p-3 sm:p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex items-start justify-between text-xs hover:bg-slate-100/60 transition-colors gap-3"
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-slate-800">{log.title}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-brand-coral/10 text-brand-coral border border-brand-coral/20">
+                      {log.petName}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-medium">{log.details}</p>
+                </div>
+                <div className="text-[10px] font-bold text-amber-600 shrink-0 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{log.formattedTime}</span>
+                </div>
+              </div>
+            ))}
+
+            {activityLogs.length === 0 && (
+              <p className="text-xs text-slate-400 italic text-center py-6">No update activities logged yet.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 4 Stat Overview Metrics Row (Light Aesthetic & Mobile Responsive) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
@@ -1042,6 +1225,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
                 { id: 'VACCINES', label: `💉 Vaccines (${managePet.vaccinations?.length || 0})` },
                 { id: 'EXPENSES', label: `💰 Expenses` },
                 { id: 'REMINDERS', label: `🔔 Reminders (${managePet.reminders?.length || 0})` },
+                { id: 'LOGS', label: `📜 Activity History` },
                 { id: 'PASSPORT', label: `📋 Passport` },
                 { id: 'ALERT', label: `📢 Missing Alert` },
                 { id: 'DOCS', label: `📁 Docs Vault` },
@@ -1120,7 +1304,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </form>
             )}
 
-            {/* Tab 2: Vaccinations (PERSISTENT VACCINE SAVE FORM) */}
+            {/* Tab 2: Vaccinations */}
             {manageTab === 'VACCINES' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
                 <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -1235,7 +1419,31 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 5: Passport */}
+            {/* Tab 5: Activity History Log */}
+            {manageTab === 'LOGS' && (
+              <div className="space-y-3 pt-2 animate-fadeIn">
+                <span className="text-[11px] font-extrabold text-slate-800 uppercase block">📜 Update History for {managePet.name}</span>
+                <div className="space-y-2 max-h-56 overflow-y-auto">
+                  {activityLogs
+                    .filter((log) => log.petName === managePet.name || log.petName === 'Bruno')
+                    .map((log) => (
+                      <div key={log.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-slate-800">{log.title}</span>
+                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">{log.formattedTime}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">{log.details}</p>
+                      </div>
+                    ))}
+
+                  {activityLogs.filter((log) => log.petName === managePet.name || log.petName === 'Bruno').length === 0 && (
+                    <p className="text-xs text-slate-400 italic text-center py-4">No update history recorded yet for {managePet.name}.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tab 6: Passport */}
             {manageTab === 'PASSPORT' && (
               <div className="space-y-3 pt-2 animate-fadeIn text-center">
                 <p className="text-xs text-slate-500">Preview or print the official medical passport for {managePet.name}.</p>
@@ -1247,7 +1455,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 6: Missing Alert */}
+            {/* Tab 7: Missing Alert */}
             {manageTab === 'ALERT' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl font-mono text-[11px] text-rose-950 font-bold space-y-1">
@@ -1267,7 +1475,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 7: Docs Vault */}
+            {/* Tab 8: Docs Vault */}
             {manageTab === 'DOCS' && (
               <div className="space-y-3 pt-2 animate-fadeIn">
                 <form onSubmit={handleAddDocSubmit} className="space-y-2">
@@ -1281,7 +1489,7 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
               </div>
             )}
 
-            {/* Tab 8: Delete Pet */}
+            {/* Tab 9: Delete Pet */}
             {manageTab === 'DELETE' && (
               <div className="space-y-3 pt-2 animate-fadeIn text-center">
                 <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
