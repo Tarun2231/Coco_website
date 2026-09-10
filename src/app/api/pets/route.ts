@@ -4,8 +4,8 @@ import { syncFromCloudStore, addPetToStore } from '@/lib/store';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const pets = await syncFromCloudStore();
-  return NextResponse.json({ pets });
+  const { pets, activities } = await syncFromCloudStore();
+  return NextResponse.json({ pets, activities });
 }
 
 export async function POST(req: Request) {
