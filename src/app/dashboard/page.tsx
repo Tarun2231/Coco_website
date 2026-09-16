@@ -1,8 +1,8 @@
 import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { DashboardClient } from './DashboardClient';
+import { syncFromCloudStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,36 +15,11 @@ export default async function DashboardPage() {
 
   let pets: any[] = [];
   try {
-    if (user.id && user.id.length === 24) {
-      pets = await db.pet.findMany({
-        where: { userId: user.id },
-        include: {
-          privacySetting: true,
-          vaccinations: true,
-          expenses: true,
-          reminders: true,
-          documents: true,
-          qrCode: true,
-        },
-        orderBy: { createdAt: 'asc' },
-      });
-    } else if (user.email) {
-      pets = await db.pet.findMany({
-        where: { user: { email: user.email } },
-        include: {
-          privacySetting: true,
-          vaccinations: true,
-          expenses: true,
-          reminders: true,
-          documents: true,
-          qrCode: true,
-        },
-        orderBy: { createdAt: 'asc' },
-      });
-    }
+    const cloudData = await syncFromCloudStore();
+    pets = cloudData.pets || [];
   } catch (err) {
-    console.error('Dashboard DB fetch error:', err);
+    console.error('Dashboard Cloud fetch error:', err);
   }
 
-  return <DashboardClient initialPets={pets as any} userName={user.name} />;
+  return <DashboardClient initialPets={JSON.parse(JSON.stringify(pets))} userName={user.name} />;
 }
