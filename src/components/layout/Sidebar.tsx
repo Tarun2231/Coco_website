@@ -89,8 +89,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
-                  'flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all group',
+                  'flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all group active:scale-95',
                   isActive
                     ? 'bg-brand-coral text-white shadow-md shadow-brand-coral/20'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -141,8 +142,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
-                'flex flex-col items-center justify-center px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all relative',
+                'flex flex-col items-center justify-center px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all relative active:scale-95',
                 isActive ? 'text-brand-coral' : 'text-slate-400 hover:text-slate-200'
               )}
             >
