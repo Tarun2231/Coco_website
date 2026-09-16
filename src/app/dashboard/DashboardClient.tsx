@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PetSelector } from '@/components/dashboard/PetSelector';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { QRCodeCard } from '@/components/dashboard/QRCodeCard';
@@ -40,7 +40,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed[parsed.length - 1];
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
         } catch (e) {}
       }
     }
@@ -49,36 +49,62 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
 
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
 
-  const fetchPets = async () => {
+  const fetchPets = useCallback(async () => {
     try {
       const res = await fetch('/api/pets', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data.pets && Array.isArray(data.pets)) {
-          setPets(data.pets);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
-          }
-          if (data.pets.length > 0 && !selectedPet) {
-            setSelectedPet(data.pets[data.pets.length - 1]);
-          }
+          setPets((prevLocal) => {
+            const map = new Map<string, any>();
+            data.pets.forEach((p: any) => map.set(p.id, p));
+
+            // Merge local entries not yet in server data
+            prevLocal.forEach((p: any) => {
+              if (!map.has(p.id)) {
+                map.set(p.id, p);
+              }
+            });
+
+            const merged = Array.from(map.values());
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
+            }
+            return merged;
+          });
         }
       }
     } catch (err) {
       console.error('Fetch pets error:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchPets();
-  }, []);
+
+    // 8-second cross-device real-time sync polling
+    const timer = setInterval(() => {
+      fetchPets();
+    }, 8000);
+
+    const handleStorageUpdate = () => fetchPets();
+    window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
+    window.addEventListener('focus', handleStorageUpdate);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
+      window.removeEventListener('focus', handleStorageUpdate);
+    };
+  }, [fetchPets]);
 
   const handlePetAdded = (newPet?: any) => {
     if (newPet) {
       setPets((prev) => {
-        const updated = [...prev.filter((p) => p.id !== newPet.id), newPet];
+        const updated = [newPet, ...prev.filter((p) => p.id !== newPet.id)];
         if (typeof window !== 'undefined') {
           localStorage.setItem('puppy_id_pets', JSON.stringify(updated));
+          window.dispatchEvent(new Event('puppy_id_pets_updated'));
         }
         return updated;
       });
@@ -87,7 +113,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     fetchPets();
   };
 
-  const currentPet = selectedPet || (pets.length > 0 ? pets[pets.length - 1] : null);
+  const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
   const expenses = (currentPet as any)?.expenses || [];
@@ -95,7 +121,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
   const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + Number(curr.amount || 0), 0);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn text-slate-800">
       {/* Header & Pet Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
