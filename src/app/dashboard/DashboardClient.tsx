@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PetSelector } from '@/components/dashboard/PetSelector';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { QRCodeCard } from '@/components/dashboard/QRCodeCard';
@@ -19,28 +19,69 @@ interface DashboardClientProps {
 }
 
 export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, userName }) => {
-  const [pets, setPets] = useState<Pet[]>(initialPets);
-  const [selectedPet, setSelectedPet] = useState<Pet | null>(initialPets[0] || null);
+  const [pets, setPets] = useState<Pet[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {
+          console.error('Failed to parse localStorage pets:', e);
+        }
+      }
+    }
+    return initialPets;
+  });
+
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[parsed.length - 1];
+        } catch (e) {}
+      }
+    }
+    return initialPets[0] || null;
+  });
+
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
 
   const fetchPets = async () => {
     try {
-      const res = await fetch('/api/pets');
-      const data = await res.json();
-      if (data.pets && Array.isArray(data.pets)) {
-        setPets(data.pets);
-        if (data.pets.length > 0) {
-          setSelectedPet(data.pets[data.pets.length - 1]);
+      const res = await fetch('/api/pets', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pets && Array.isArray(data.pets)) {
+          setPets(data.pets);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
+          }
+          if (data.pets.length > 0 && !selectedPet) {
+            setSelectedPet(data.pets[data.pets.length - 1]);
+          }
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Fetch pets error:', err);
     }
   };
 
+  useEffect(() => {
+    fetchPets();
+  }, []);
+
   const handlePetAdded = (newPet?: any) => {
     if (newPet) {
-      setPets((prev) => [...prev, newPet]);
+      setPets((prev) => {
+        const updated = [...prev.filter((p) => p.id !== newPet.id), newPet];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('puppy_id_pets', JSON.stringify(updated));
+        }
+        return updated;
+      });
       setSelectedPet(newPet);
     }
     fetchPets();
