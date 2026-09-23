@@ -25,6 +25,24 @@ interface VaccinationsClientProps {
   petName: string;
 }
 
+export const COMPREHENSIVE_PET_VACCINES = [
+  'Rabies Anti-Rabies Vaccine (ARV 1-Year)',
+  'Rabies Anti-Rabies Vaccine (ARV 3-Year)',
+  'DHPPi + L (7-in-1 Core Combination Shot)',
+  'DHPPi + L4 (9-in-1 Mega Combination Shot)',
+  'DHPP Core Vaccine (Distemper, Hepatitis, Parvo, Parainfluenza)',
+  'Canine Parvovirus Booster Shot (CPV)',
+  'Bordetella Kennel Cough (Oral/Nasal Spray)',
+  'Leptospirosis 4-Strain Protection (L4)',
+  'Lyme Disease Vaccine (Borrelia Burgdorferi)',
+  'Canine Coronavirus Protection (CCV)',
+  'Feline FVRCP (Cat 3-in-1 Core Vaccine)',
+  'Feline Leukemia Virus Protection (FeLV)',
+  'Annual Immunity Booster Drive',
+  'Deworming & Anti-Parasite Shot',
+  'Custom / Special Vet Vaccine',
+];
+
 export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
   initialVaccinations,
   petId,
@@ -87,9 +105,9 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     };
   }, [selectedPetId]);
 
-  const [vaccineName, setVaccineName] = useState('Rabies Anti-Rabies Vaccine');
+  const [vaccineName, setVaccineName] = useState(COMPREHENSIVE_PET_VACCINES[0]);
   const [doseCount, setDoseCount] = useState<string>('1');
-  const [cost, setCost] = useState<string>('1200');
+  const [cost, setCost] = useState<string>('1500');
   const [dateAdministered, setDateAdministered] = useState(new Date().toISOString().split('T')[0]);
   const [nextDueDate, setNextDueDate] = useState('');
   const [vetName, setVetName] = useState('');
@@ -167,7 +185,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
 
     const updatedVacs = [newVac, ...vaccinations];
 
-    // Automatically link expense if cost > 0
+    // Create linked expense record for transaction tracking across dashboard & admin
     let updatedExpenses: any[] | undefined = undefined;
     const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
     if (costVal > 0 && targetPet) {
@@ -181,18 +199,36 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
         currency: '₹',
         date: dateAdministered,
         vendor: clinic || 'Banjara Vet Hospital',
+        paymentMethod: 'UPI',
       };
       updatedExpenses = [newVacExpense, ...currentExps];
     }
 
+    // Save timestamped Activity & Transaction Log Entry
+    if (typeof window !== 'undefined') {
+      const now = new Date();
+      const newAct = {
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'VACCINE_ADDED',
+        title: `Vaccine & Expense Logged: "${displayName}" (${formatCurrency(costVal)})`,
+        details: `Transaction: ${formatCurrency(costVal)} • Given: ${dateAdministered} • Vet: ${vetName || 'Dr. Verma'}`,
+        petName: currentPetName,
+      };
+      const savedActs = localStorage.getItem('puppy_id_activities');
+      let currentActs = savedActs ? JSON.parse(savedActs) : [];
+      if (!Array.isArray(currentActs)) currentActs = [];
+      localStorage.setItem('puppy_id_activities', JSON.stringify([newAct, ...currentActs]));
+    }
+
     syncVaccinationsToStorage(updatedVacs, updatedExpenses);
 
-    setNotice(`✅ Vaccination (Cost: ${formatCurrency(costVal)}) saved & linked across dashboard!`);
-    setTimeout(() => setNotice(null), 4000);
+    setNotice(`✅ Vaccine & Transaction Amount (${formatCurrency(costVal)}) linked across Dashboard, Expense Tracker & Admin Panel!`);
+    setTimeout(() => setNotice(null), 4500);
 
-    setVaccineName('Rabies Anti-Rabies Vaccine');
     setDoseCount('1');
-    setCost('1200');
+    setCost('1500');
     setNextDueDate('');
     setVetName('');
     setClinic('');
@@ -207,7 +243,25 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
         body: JSON.stringify(newVac),
       });
 
-      // 2. Update pet object in cloud store so laptop re-sync picks up vaccinations immediately
+      // 2. Post to expenses API so transaction is saved on server
+      if (costVal > 0) {
+        await fetch('/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: `exp-vac-${newVac.id}`,
+            petId: selectedPetId,
+            category: 'Vaccination',
+            description: `Vaccination: ${displayName}`,
+            amount: costVal,
+            currency: '₹',
+            date: dateAdministered,
+            vendor: clinic || 'Banjara Vet Hospital',
+          }),
+        });
+      }
+
+      // 3. Update pet object in cloud store for Admin Panel & Owner Dashboard sync
       if (targetPet) {
         const updatedPet = {
           ...targetPet,
@@ -251,6 +305,23 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       updatedExpenses = targetPet.expenses.filter((e: any) => e.id !== `exp-vac-${vac.id}`);
     }
 
+    if (typeof window !== 'undefined') {
+      const now = new Date();
+      const newAct = {
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'VACCINE_DELETED',
+        title: `Removed Vaccine Record: "${vac.vaccineName}"`,
+        details: `Vaccination record & transaction deleted from registry`,
+        petName: currentPetName,
+      };
+      const savedActs = localStorage.getItem('puppy_id_activities');
+      let currentActs = savedActs ? JSON.parse(savedActs) : [];
+      if (!Array.isArray(currentActs)) currentActs = [];
+      localStorage.setItem('puppy_id_activities', JSON.stringify([newAct, ...currentActs]));
+    }
+
     syncVaccinationsToStorage(updatedVacs, updatedExpenses);
 
     setNotice(`✅ Vaccination record "${vac.vaccineName}" removed.`);
@@ -291,7 +362,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
         petId: selectedPetId,
         vaccineName: `Immunization Record #${vaccinations.length + i}`,
         doseCount: vaccinations.length + i,
-        cost: 1200,
+        cost: 1500,
         dateAdministered: todayStr,
         vetName: 'Dr. Rahul Verma',
         clinic: 'Banjara Vet Hospital',
@@ -430,7 +501,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <Plus className="w-5 h-5" />
                 </div>
-                <span>Add Vaccine Record & Cost</span>
+                <span>Add Vaccine Record & Transaction</span>
               </div>
             </div>
 
@@ -453,20 +524,19 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                 </div>
               )}
 
-              {/* Vaccine Name */}
+              {/* Comprehensive Pet Vaccine Type Dropdown */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Vaccine Name *</label>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Vaccine Name / Type *</label>
                 <select
                   value={vaccineName}
                   onChange={(e) => setVaccineName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-900 focus:ring-2 focus:ring-emerald-500 bg-white"
                 >
-                  <option value="Rabies Anti-Rabies Vaccine">Rabies Anti-Rabies Vaccine</option>
-                  <option value="DHPP Core Vaccine">DHPP (Distemper, Hepatitis, Parvo, Parainfluenza)</option>
-                  <option value="Annual Booster Shot">Annual Immunity Booster</option>
-                  <option value="Bordetella Kennel Cough">Bordetella Kennel Cough</option>
-                  <option value="Leptospirosis Vaccine">Leptospirosis Vaccine</option>
-                  <option value="Lyme Disease Vaccine">Lyme Disease Vaccine</option>
+                  {COMPREHENSIVE_PET_VACCINES.map((vac) => (
+                    <option key={vac} value={vac}>
+                      💉 {vac}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -490,14 +560,14 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1 flex items-center gap-1">
                     <DollarSign className="w-3 h-3 text-emerald-600" />
-                    <span>Vaccine Cost (₹)</span>
+                    <span>Transaction Cost (₹)</span>
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     value={cost}
                     onChange={(e) => setCost(e.target.value)}
-                    placeholder="1200"
+                    placeholder="1500"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                 </div>
@@ -581,7 +651,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                 className="w-full font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 mt-2"
                 icon={<Plus className="w-4 h-4" />}
               >
-                {isSubmitting ? 'Saving & Syncing...' : `Save Vaccine & Cost for ${currentPetName}`}
+                {isSubmitting ? 'Saving & Syncing...' : `Save Vaccine & Transaction for ${currentPetName}`}
               </Button>
             </form>
           </div>
@@ -609,7 +679,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
                   <thead>
                     <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase">
                       <th className="py-3 px-3">Vaccine Name & Dose #</th>
-                      <th className="py-3 px-3">Cost (₹)</th>
+                      <th className="py-3 px-3">Transaction (₹)</th>
                       <th className="py-3 px-3">Date Given</th>
                       <th className="py-3 px-3">Next Due</th>
                       <th className="py-3 px-3 text-right">Actions / Status</th>
