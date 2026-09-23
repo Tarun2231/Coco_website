@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getPetById, addVaccinationToStore, updateVaccinationInStore } from '@/lib/store';
+import { getPetById, addVaccinationToStore, updateVaccinationInStore, deleteVaccinationFromStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,5 +42,23 @@ export async function PUT(req: Request) {
   } catch (err) {
     console.error('Vaccination update error:', err);
     return NextResponse.json({ error: 'Failed to update vaccination record' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const petId = searchParams.get('petId');
+    const vacId = searchParams.get('vacId') || searchParams.get('id');
+
+    if (!petId || !vacId) {
+      return NextResponse.json({ error: 'petId and vacId required' }, { status: 400 });
+    }
+
+    const success = await deleteVaccinationFromStore(petId, vacId);
+    return NextResponse.json({ success });
+  } catch (err) {
+    console.error('Vaccination delete error:', err);
+    return NextResponse.json({ error: 'Failed to delete vaccination record' }, { status: 500 });
   }
 }

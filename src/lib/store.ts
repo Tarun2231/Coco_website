@@ -48,6 +48,7 @@ export interface VaccinationRecord {
   petId: string;
   vaccineName: string;
   doseCount?: number | string;
+  cost?: number | string;
   dateAdministered: string;
   nextDueDate?: string;
   vetName?: string;
@@ -299,6 +300,8 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
     id: vacData.id || `vac-${Date.now()}`,
     petId: pet?.id || petId,
     vaccineName: vacData.vaccineName || 'Rabies Anti-Rabies Vaccine',
+    doseCount: vacData.doseCount,
+    cost: vacData.cost ? Number(vacData.cost) : 0,
     dateAdministered: vacData.dateAdministered || new Date().toISOString().split('T')[0],
     nextDueDate: vacData.nextDueDate,
     vetName: vacData.vetName || 'Dr. Rahul Verma',
@@ -313,13 +316,31 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
     if (!exists) {
       pet.vaccinations.unshift(newVac);
 
+      // Automatically create linked expense record if cost > 0
+      if (Number(newVac.cost || 0) > 0) {
+        if (!pet.expenses) pet.expenses = [];
+        const vacExpId = `exp-vac-${newVac.id}`;
+        if (!pet.expenses.some((e) => e.id === vacExpId)) {
+          pet.expenses.unshift({
+            id: vacExpId,
+            petId: pet.id,
+            category: 'Vaccination',
+            description: `Vaccination: ${newVac.vaccineName}`,
+            amount: Number(newVac.cost),
+            currency: '₹',
+            date: newVac.dateAdministered,
+            vendor: newVac.clinic || 'Vet Clinic',
+          });
+        }
+      }
+
       const now = new Date();
       activities.unshift({
         id: `act-${Date.now()}`,
         timestamp: now.toISOString(),
         formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
         type: 'VACCINE_ADDED',
-        title: `Vaccine Logged: "${newVac.vaccineName}"`,
+        title: `Vaccine Logged: "${newVac.vaccineName}"${Number(newVac.cost || 0) > 0 ? ` (₹${newVac.cost})` : ''}`,
         details: `Given: ${newVac.dateAdministered} • Vet: ${newVac.vetName || 'Dr. Verma'}`,
         petName: pet.name,
       });
@@ -327,6 +348,41 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
     await saveToCloudStore(currentPets, activities);
   }
   return newVac;
+}
+
+export async function deleteVaccinationFromStore(petId: string, vacId: string): Promise<boolean> {
+  const { pets: currentPets, activities } = await syncFromCloudStore();
+  const searchPet = String(petId).trim().toLowerCase();
+  let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === searchPet || String(p.publicId).trim().toLowerCase() === searchPet);
+  if (!pet && currentPets.length > 0) pet = currentPets[0];
+
+  if (pet && pet.vaccinations) {
+    const searchVac = String(vacId).trim().toLowerCase();
+    const idx = pet.vaccinations.findIndex((v) => String(v.id).trim().toLowerCase() === searchVac);
+    if (idx !== -1) {
+      const vacName = pet.vaccinations[idx].vaccineName;
+      pet.vaccinations.splice(idx, 1);
+
+      if (pet.expenses) {
+        pet.expenses = pet.expenses.filter((e) => e.id !== `exp-vac-${vacId}`);
+      }
+
+      const now = new Date();
+      activities.unshift({
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'VACCINE_DELETED',
+        title: `Removed Vaccine Record: "${vacName}"`,
+        details: `Vaccination record deleted from history log`,
+        petName: pet.name,
+      });
+
+      await saveToCloudStore(currentPets, activities);
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): Promise<VaccinationRecord | undefined> {
