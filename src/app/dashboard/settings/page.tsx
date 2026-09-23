@@ -114,6 +114,7 @@ export default function SettingsPage() {
     setIsDeleting(true);
 
     const targetPetId = currentPet.id;
+    const targetPublicId = currentPet.publicId;
     const petName = currentPet.name;
 
     const remainingPets = pets.filter((p) => p.id !== targetPetId && p.publicId !== targetPetId);
@@ -131,12 +132,16 @@ export default function SettingsPage() {
 
     try {
       await fetch(`/api/pets?petId=${targetPetId}`, { method: 'DELETE' });
+      await fetch(`/api/pets/${targetPetId}`, { method: 'DELETE' });
+      if (targetPublicId) {
+        await fetch(`/api/pets?petId=${targetPublicId}`, { method: 'DELETE' });
+      }
     } catch (err) {
       console.error('Delete pet API error:', err);
     } finally {
       setIsDeleting(false);
       setIsConfirmModalOpen(false);
-      setDeleteNotice(`✅ Pet profile for "${petName}" has been permanently removed.`);
+      setDeleteNotice(`✅ Pet profile for "${petName}" has been permanently deleted from both Owner Portal & Admin Studio.`);
       setTimeout(() => setDeleteNotice(null), 4000);
     }
   };
@@ -301,7 +306,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <h2 className="text-base font-extrabold text-rose-900">Danger Zone — Delete Pet Profile</h2>
-              <p className="text-xs text-rose-700 font-medium">Remove a registered pet profile permanently from your owner account</p>
+              <p className="text-xs text-rose-700 font-medium">Remove a registered pet profile permanently from both Owner Account & Admin Studio</p>
             </div>
           </div>
 
@@ -349,7 +354,7 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <h3 className="text-sm font-black text-rose-950">Are you sure you want to delete?</h3>
                 <p className="text-xs text-rose-900 font-semibold leading-relaxed">
-                  Are you sure you want to delete <strong>&quot;{currentPet.name}&quot;</strong>? This action is permanent and will remove all vaccination records, reminders, and QR code links for this pet.
+                  Are you sure you want to delete <strong>&quot;{currentPet.name}&quot;</strong>? This action is permanent and will remove all vaccination records, reminders, and QR code links for this pet from both Owner Portal and Admin Studio.
                 </p>
               </div>
             </div>

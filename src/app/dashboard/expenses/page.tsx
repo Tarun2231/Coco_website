@@ -16,7 +16,7 @@ export default async function ExpensesPage() {
 
   return (
     <ExpensesClient
-      initialExpenses={firstPet?.expenses || []}
+      initialExpenses={(firstPet?.expenses || []) as any}
       petId={firstPet?.id || ''}
       petName={firstPet?.name || 'Your Pet'}
     />

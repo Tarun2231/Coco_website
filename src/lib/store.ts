@@ -1,15 +1,57 @@
-// Vercel Serverless & Cloud Persistent Data Store for Puppy ID
-// Uses cloud storage (api.restful-api.dev) for 100% cross-device persistence between mobile & laptop.
+const CLOUD_OBJECT_ID = 'ff808181a067127101a06d588f79124f';
+const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
+
+export interface PetRecord {
+  id: string;
+  publicId: string;
+  name: string;
+  species: string;
+  breed: string;
+  gender: 'Male' | 'Female';
+  dob?: string;
+  color?: string;
+  weight?: string;
+  microchipId?: string;
+  registrationNo?: string;
+  licenseNo?: string;
+  photo?: string;
+  importantNotes?: string;
+  isLost: boolean;
+  lostNotes?: string;
+  lastSeenDate?: string;
+  lastSeenTime?: string;
+  lastSeenLocation?: string;
+  rewardAmount?: string;
+  user?: {
+    name: string;
+    phone: string;
+    email: string;
+    address: string;
+  };
+  privacySetting?: {
+    showName: boolean;
+    showPhoto: boolean;
+    showBreed: boolean;
+    [key: string]: boolean;
+  };
+  vaccinations: VaccinationRecord[];
+  expenses: ExpenseRecord[];
+  reminders: ReminderRecord[];
+  qrCode?: {
+    qrCodeUrl: string;
+    scanCount: number;
+  };
+}
 
 export interface VaccinationRecord {
   id: string;
   petId: string;
   vaccineName: string;
+  doseCount?: number | string;
   dateAdministered: string;
   nextDueDate?: string;
   vetName?: string;
   clinic?: string;
-  batchNo?: string;
   notes?: string;
   status: 'COMPLETED' | 'UPCOMING' | 'OVERDUE';
 }
@@ -20,7 +62,7 @@ export interface ExpenseRecord {
   category: string;
   description: string;
   amount: number;
-  currency: string;
+  currency?: string;
   date: string;
   vendor?: string;
 }
@@ -41,54 +83,11 @@ export interface ActivityLogRecord {
   id: string;
   timestamp: string;
   formattedTime: string;
-  type: 'PUPPY_ADDED' | 'VACCINE_ADDED' | 'REMINDER_ADDED' | 'EXPENSE_ADDED' | 'PET_UPDATED' | 'LOST_MODE_TOGGLED' | 'PET_DELETED';
+  type: string;
   title: string;
   details: string;
   petName: string;
 }
-
-export interface PetRecord {
-  id: string;
-  publicId: string;
-  name: string;
-  species: string;
-  breed: string;
-  gender: 'Male' | 'Female';
-  dob?: string;
-  color?: string;
-  weight?: string;
-  microchipId?: string;
-  registrationNo?: string;
-  licenseNo?: string;
-  photo?: string;
-  isLost: boolean;
-  lostNotes?: string;
-  lastSeenDate?: string;
-  lastSeenTime?: string;
-  lastSeenLocation?: string;
-  lastSeenLat?: number;
-  lastSeenLng?: number;
-  rewardAmount?: string;
-  importantNotes?: string;
-  user?: {
-    name: string;
-    phone: string;
-    altPhone?: string;
-    email: string;
-    address?: string;
-  };
-  privacySetting?: Record<string, boolean>;
-  vaccinations: VaccinationRecord[];
-  expenses: ExpenseRecord[];
-  reminders: ReminderRecord[];
-  qrCode?: {
-    qrCodeUrl: string;
-    scanCount: number;
-  };
-}
-
-const CLOUD_OBJECT_ID = 'ff808181a067127101a06d588f79124f';
-const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
 
 const globalForStore = globalThis as unknown as {
   petsStore: PetRecord[] | undefined;
@@ -123,7 +122,7 @@ export async function syncFromCloudStore(): Promise<{ pets: PetRecord[]; activit
   return { pets: globalForStore.petsStore || [], activities: globalForStore.activityStore || [] };
 }
 
-// Push to Cloud Store (Sanitizes heavy base64 photos so restful-api.dev 128KB limit never fails)
+// Push to Cloud Store
 export async function saveToCloudStore(pets: PetRecord[], activities?: ActivityLogRecord[]): Promise<void> {
   try {
     globalForStore.petsStore = pets;
@@ -138,7 +137,6 @@ export async function saveToCloudStore(pets: PetRecord[], activities?: ActivityL
     });
 
     const currentActivities = activities || globalForStore.activityStore || [];
-    // Keep last 50 activities for performance
     const trimmedActivities = currentActivities.slice(0, 50);
 
     const res = await fetch(CLOUD_API_URL, {
@@ -163,7 +161,8 @@ export function getAllPets(): PetRecord[] {
 
 export function getPetById(idOrPublicId: string): PetRecord | undefined {
   const all = getAllPets();
-  return all.find((p) => p.id === idOrPublicId || p.publicId === idOrPublicId);
+  const search = String(idOrPublicId || '').trim().toLowerCase();
+  return all.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
 }
 
 export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord> {
@@ -211,11 +210,14 @@ export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord
     },
   };
 
-  const existingIdx = currentPets.findIndex((p) => p.id === newPet.id || p.publicId === newPet.publicId);
+  const searchTarget = String(newPet.id).trim().toLowerCase();
+  const existingIdx = currentPets.findIndex(
+    (p) => String(p.id).trim().toLowerCase() === searchTarget || String(p.publicId).trim().toLowerCase() === String(newPet.publicId).trim().toLowerCase()
+  );
+
   if (existingIdx === -1) {
     currentPets.unshift(newPet);
 
-    // Create activity log
     const now = new Date();
     const newActivity: ActivityLogRecord = {
       id: `act-${Date.now()}`,
@@ -237,7 +239,10 @@ export async function addPetToStore(data: Partial<PetRecord>): Promise<PetRecord
 
 export async function updatePetInStore(petId: string, updates: Partial<PetRecord>): Promise<PetRecord | undefined> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  const index = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
+  const search = String(petId).trim().toLowerCase();
+  const index = currentPets.findIndex(
+    (p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search
+  );
   if (index !== -1) {
     currentPets[index] = { ...currentPets[index], ...updates };
     await saveToCloudStore(currentPets, activities);
@@ -248,7 +253,15 @@ export async function updatePetInStore(petId: string, updates: Partial<PetRecord
 
 export async function deletePetFromStore(petId: string): Promise<boolean> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  const idx = currentPets.findIndex((p) => p.id === petId || p.publicId === petId);
+  const searchId = String(petId).trim().toLowerCase();
+
+  const idx = currentPets.findIndex(
+    (p) =>
+      String(p.id).trim().toLowerCase() === searchId ||
+      String(p.publicId).trim().toLowerCase() === searchId ||
+      String(p.name).trim().toLowerCase() === searchId
+  );
+
   if (idx !== -1) {
     const petName = currentPets[idx].name;
     currentPets.splice(idx, 1);
@@ -276,7 +289,8 @@ export async function toggleLostModeInStore(petId: string, isLost: boolean): Pro
 
 export async function addVaccinationToStore(petId: string, vacData: Partial<VaccinationRecord>): Promise<VaccinationRecord> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  const search = String(petId).trim().toLowerCase();
+  let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
   if (!pet && currentPets.length > 0) {
     pet = currentPets[0];
   }
@@ -317,7 +331,8 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
 
 export async function updateVaccinationInStore(petId: string, vacId: string, updates: Partial<VaccinationRecord>): Promise<VaccinationRecord | undefined> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  const search = String(petId).trim().toLowerCase();
+  let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
   if (pet) {
@@ -333,7 +348,8 @@ export async function updateVaccinationInStore(petId: string, vacId: string, upd
 
 export async function addExpenseToStore(petId: string, expData: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  const search = String(petId).trim().toLowerCase();
+  let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
   const newExp: ExpenseRecord = {
@@ -369,7 +385,8 @@ export async function addExpenseToStore(petId: string, expData: Partial<ExpenseR
 
 export async function addReminderToStore(petId: string, remData: Partial<ReminderRecord>): Promise<ReminderRecord> {
   const { pets: currentPets, activities } = await syncFromCloudStore();
-  let pet = currentPets.find((p) => p.id === petId || p.publicId === petId);
+  const search = String(petId).trim().toLowerCase();
+  let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
   const newRem: ReminderRecord = {
