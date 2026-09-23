@@ -15,6 +15,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
     },
     { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { label: 'Admin Studio', href: '/admin/pets', icon: SlidersHorizontal },
   ];
 
   const mobileNavItems = [
@@ -53,12 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
     { label: 'Profile', href: '/dashboard/profile', icon: Dog },
     { label: 'Vaccines', href: '/dashboard/vaccinations', icon: Syringe },
     { label: 'Expenses', href: '/dashboard/expenses', icon: DollarSign },
-    {
-      label: 'Messages',
-      href: '/dashboard/messages',
-      icon: MessageSquare,
-      badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined,
-    },
+    { label: 'Admin', href: '/admin/pets', icon: SlidersHorizontal },
   ];
 
   return (
@@ -85,6 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const isAdminItem = item.href === '/admin/pets';
             return (
               <Link
                 key={item.href}
@@ -94,6 +92,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
                   'flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all group active:scale-95',
                   isActive
                     ? 'bg-brand-coral text-white shadow-md shadow-brand-coral/20'
+                    : isAdminItem
+                    ? 'text-amber-400 hover:text-amber-300 hover:bg-slate-800/80 font-bold'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 )}
               >
@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
                   <Icon
                     className={cn(
                       'w-5 h-5 transition-transform group-hover:scale-110',
-                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                      isActive ? 'text-white' : isAdminItem ? 'text-amber-400' : 'text-slate-400 group-hover:text-white'
                     )}
                   />
                   <span>{item.label}</span>
@@ -150,11 +150,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ unreadMessagesCount = 2 }) => 
             >
               <div className="relative">
                 <Icon className={cn('w-5 h-5 mb-0.5', isActive ? 'text-brand-coral' : 'text-slate-400')} />
-                {item.badge && (
-                  <span className="absolute -top-1 -right-2 bg-brand-coral text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
               </div>
               <span>{item.label}</span>
             </Link>

@@ -75,6 +75,15 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       }
     };
     fetchLatest();
+
+    const interval = setInterval(fetchLatest, 6000);
+    const handleStorageUpdate = () => fetchLatest();
+    window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
+    };
   }, [selectedPetId]);
 
   const [vaccineName, setVaccineName] = useState('Rabies Anti-Rabies Vaccine');
@@ -150,6 +159,25 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     const updatedVacs = [newVac, ...vaccinations];
     syncVaccinationsToStorage(updatedVacs);
 
+    // Save Activity Log locally
+    if (typeof window !== 'undefined') {
+      const now = new Date();
+      const newAct = {
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        formattedTime: `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        type: 'VACCINE_ADDED',
+        title: `Vaccine Logged: "${displayName}"`,
+        details: `Given: ${dateAdministered} • Vet: ${vetName || 'Dr. Verma'}`,
+        petName: currentPetName,
+      };
+      const savedActs = localStorage.getItem('puppy_id_activities');
+      let currentActs = savedActs ? JSON.parse(savedActs) : [];
+      if (!Array.isArray(currentActs)) currentActs = [];
+      localStorage.setItem('puppy_id_activities', JSON.stringify([newAct, ...currentActs]));
+      window.dispatchEvent(new Event('puppy_id_pets_updated'));
+    }
+
     setNotice(`✅ Vaccination (Count #${countNum}) saved for ${currentPetName} and synced across devices!`);
     setTimeout(() => setNotice(null), 4000);
 
@@ -162,11 +190,26 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     setIsSubmitting(false);
 
     try {
+      // 1. Post to vaccinations API
       await fetch('/api/vaccinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newVac),
       });
+
+      // 2. Update pet object in cloud store so laptop re-sync picks up vaccinations immediately
+      const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
+      if (targetPet) {
+        const updatedPet = {
+          ...targetPet,
+          vaccinations: [newVac, ...(targetPet.vaccinations || [])],
+        };
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedPet),
+        });
+      }
 
       if (addReminderAlert && nextDueDate) {
         await fetch('/api/reminders', {
@@ -187,7 +230,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
   };
 
   // Direct manual set/quick add count action
-  const handleQuickAddCountSubmit = (e: React.FormEvent) => {
+  const handleQuickAddCountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const countToAdd = parseInt(customCountInput) || 1;
     if (countToAdd <= 0) return;
@@ -215,6 +258,20 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     setTimeout(() => setNotice(null), 4000);
     setIsQuickCountOpen(false);
     setCustomCountInput('');
+
+    try {
+      const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
+      if (targetPet) {
+        const updatedPet = { ...targetPet, vaccinations: updatedVacs };
+        await fetch('/api/pets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedPet),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
