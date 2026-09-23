@@ -48,9 +48,46 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
   petId,
   petName,
 }) => {
-  const [allPets, setAllPets] = useState<any[]>([]);
-  const [selectedPetId, setSelectedPetId] = useState<string>(petId);
-  const [currentPetName, setCurrentPetName] = useState<string>(petName);
+  const [allPets, setAllPets] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return [];
+  });
+
+  const [selectedPetId, setSelectedPetId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('puppy_id_pets');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const match = parsed.find(
+              (p: any) =>
+                String(p.id).toLowerCase() === String(petId).toLowerCase() ||
+                String(p.publicId).toLowerCase() === String(petId).toLowerCase()
+            );
+            return match ? match.id : parsed[0].id;
+          }
+        } catch (e) {}
+      }
+    }
+    return petId;
+  });
+
+  const [currentPetName, setCurrentPetName] = useState<string>(() => {
+    if (allPets.length > 0) {
+      const match = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
+      return match ? match.name : allPets[0].name;
+    }
+    return petName;
+  });
 
   const [vaccinations, setVaccinations] = useState<VaccinationItem[]>(() => {
     if (typeof window !== 'undefined') {
@@ -59,7 +96,12 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            const currentPet = parsed.find((p: any) => p.id === petId || p.publicId === petId) || parsed[0];
+            const currentPet =
+              parsed.find(
+                (p: any) =>
+                  String(p.id).toLowerCase() === String(selectedPetId).toLowerCase() ||
+                  String(p.publicId).toLowerCase() === String(selectedPetId).toLowerCase()
+              ) || parsed[0];
             if (currentPet?.vaccinations && Array.isArray(currentPet.vaccinations)) {
               return currentPet.vaccinations;
             }
@@ -80,8 +122,15 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
           const data = await res.json();
           if (Array.isArray(data.pets) && data.pets.length > 0) {
             setAllPets(data.pets);
-            const currentPet = data.pets.find((p: any) => p.id === selectedPetId || p.publicId === selectedPetId) || data.pets[0];
+            const currentPet =
+              data.pets.find(
+                (p: any) =>
+                  String(p.id).toLowerCase() === String(selectedPetId).toLowerCase() ||
+                  String(p.publicId).toLowerCase() === String(selectedPetId).toLowerCase()
+              ) || data.pets[0];
+
             if (currentPet) {
+              setSelectedPetId(currentPet.id);
               setCurrentPetName(currentPet.name);
               const serverVacs = currentPet.vaccinations || [];
 
@@ -146,28 +195,51 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     setVaccinations(updatedVacs);
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('puppy_id_pets');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            const updatedPets = parsed.map((p: any) => {
-              if (p.id === selectedPetId || p.publicId === selectedPetId) {
-                return {
-                  ...p,
-                  vaccinations: updatedVacs,
-                  expenses: updatedExpenses || p.expenses || [],
-                };
-              }
-              return p;
-            });
-            localStorage.setItem('puppy_id_pets', JSON.stringify(updatedPets));
-            window.dispatchEvent(new Event('puppy_id_pets_updated'));
-          }
-        } catch (e) {
-          console.error(e);
-        }
+      let petsArr = saved ? JSON.parse(saved) : allPets;
+      if (!Array.isArray(petsArr) || petsArr.length === 0) {
+        petsArr = [
+          {
+            id: selectedPetId || 'pet-demo-id',
+            publicId: 'bruno-demo',
+            name: currentPetName || 'Bruno',
+            breed: 'Golden Retriever',
+            vaccinations: updatedVacs,
+            expenses: updatedExpenses || [],
+          },
+        ];
       }
+
+      const searchId = String(selectedPetId).toLowerCase();
+      let matched = false;
+      const updatedPets = petsArr.map((p: any) => {
+        if (
+          String(p.id).toLowerCase() === searchId ||
+          String(p.publicId).toLowerCase() === searchId ||
+          petsArr.length === 1
+        ) {
+          matched = true;
+          return {
+            ...p,
+            vaccinations: updatedVacs,
+            expenses: updatedExpenses || p.expenses || [],
+          };
+        }
+        return p;
+      });
+
+      if (!matched && updatedPets.length > 0) {
+        updatedPets[0] = {
+          ...updatedPets[0],
+          vaccinations: updatedVacs,
+          expenses: updatedExpenses || updatedPets[0].expenses || [],
+        };
+      }
+
+      localStorage.setItem('puppy_id_pets', JSON.stringify(updatedPets));
+      window.dispatchEvent(new Event('puppy_id_pets_updated'));
+      return updatedPets;
     }
+    return [];
   };
 
   const handleAddVaccination = async (e: React.FormEvent) => {
@@ -197,9 +269,9 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
 
     // Create linked expense record for transaction tracking across dashboard & admin
     let updatedExpenses: any[] | undefined = undefined;
-    const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
-    if (costVal > 0 && targetPet) {
-      const currentExps = targetPet.expenses || [];
+    const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId) || allPets[0];
+    if (costVal > 0) {
+      const currentExps = targetPet?.expenses || [];
       const newVacExpense = {
         id: `exp-vac-${newVac.id}`,
         petId: selectedPetId,
@@ -233,7 +305,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     }
 
     // Update state & localStorage immediately
-    syncVaccinationsToStorage(updatedVacs, updatedExpenses);
+    const updatedPetsArr = syncVaccinationsToStorage(updatedVacs, updatedExpenses);
 
     setNotice(`✅ Vaccine & Transaction Amount (${formatCurrency(costVal)}) saved & linked across Dashboard!`);
     setTimeout(() => setNotice(null), 4500);
@@ -273,16 +345,17 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       }
 
       // 3. Update pet object in cloud store for Admin Panel & Owner Dashboard sync
-      if (targetPet) {
-        const updatedPet = {
-          ...targetPet,
+      const activePetToSave = targetPet || (updatedPetsArr.length > 0 ? updatedPetsArr[0] : null);
+      if (activePetToSave) {
+        const updatedPetPayload = {
+          ...activePetToSave,
           vaccinations: updatedVacs,
-          expenses: updatedExpenses || targetPet.expenses || [],
+          expenses: updatedExpenses || activePetToSave.expenses || [],
         };
         await fetch('/api/pets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedPet),
+          body: JSON.stringify(updatedPetPayload),
         });
       }
 
@@ -309,7 +382,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     if (!confirmDelete) return;
 
     const updatedVacs = vaccinations.filter((v) => v.id !== vac.id);
-    const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
+    const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId) || allPets[0];
     let updatedExpenses: any[] | undefined = undefined;
 
     if (targetPet && targetPet.expenses) {
@@ -333,7 +406,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       localStorage.setItem('puppy_id_activities', JSON.stringify([newAct, ...currentActs]));
     }
 
-    syncVaccinationsToStorage(updatedVacs, updatedExpenses);
+    const updatedPetsArr = syncVaccinationsToStorage(updatedVacs, updatedExpenses);
 
     setNotice(`✅ Vaccination record "${vac.vaccineName}" removed.`);
     setTimeout(() => setNotice(null), 3500);
@@ -341,16 +414,17 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     try {
       await fetch(`/api/vaccinations?petId=${selectedPetId}&vacId=${vac.id}`, { method: 'DELETE' });
 
-      if (targetPet) {
-        const updatedPet = {
-          ...targetPet,
+      const activePetToSave = targetPet || (updatedPetsArr.length > 0 ? updatedPetsArr[0] : null);
+      if (activePetToSave) {
+        const updatedPetPayload = {
+          ...activePetToSave,
           vaccinations: updatedVacs,
-          expenses: updatedExpenses || targetPet.expenses || [],
+          expenses: updatedExpenses || activePetToSave.expenses || [],
         };
         await fetch('/api/pets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedPet),
+          body: JSON.stringify(updatedPetPayload),
         });
       }
     } catch (err) {
@@ -382,7 +456,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     }
 
     const updatedVacs = [...newItems, ...vaccinations];
-    syncVaccinationsToStorage(updatedVacs);
+    const updatedPetsArr = syncVaccinationsToStorage(updatedVacs);
 
     setNotice(`✅ Added ${countToAdd} vaccination count(s) for ${currentPetName}!`);
     setTimeout(() => setNotice(null), 4000);
@@ -390,7 +464,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     setCustomCountInput('');
 
     try {
-      const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId);
+      const targetPet = allPets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId) || (updatedPetsArr.length > 0 ? updatedPetsArr[0] : null);
       if (targetPet) {
         const updatedPet = { ...targetPet, vaccinations: updatedVacs };
         await fetch('/api/pets', {
