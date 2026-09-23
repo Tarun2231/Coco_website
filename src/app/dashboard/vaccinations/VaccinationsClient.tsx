@@ -83,9 +83,19 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
             const currentPet = data.pets.find((p: any) => p.id === selectedPetId || p.publicId === selectedPetId) || data.pets[0];
             if (currentPet) {
               setCurrentPetName(currentPet.name);
-              if (currentPet.vaccinations && Array.isArray(currentPet.vaccinations)) {
-                setVaccinations(currentPet.vaccinations);
-              }
+              const serverVacs = currentPet.vaccinations || [];
+
+              // Merge local & server vaccinations so newly added vaccines are NEVER lost by race conditions
+              setVaccinations((prevLocal) => {
+                const map = new Map<string, VaccinationItem>();
+                serverVacs.forEach((v: VaccinationItem) => map.set(v.id, v));
+                prevLocal.forEach((v: VaccinationItem) => {
+                  if (!map.has(v.id)) {
+                    map.set(v.id, v);
+                  }
+                });
+                return Array.from(map.values());
+              });
             }
           }
         }
@@ -222,9 +232,10 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
       localStorage.setItem('puppy_id_activities', JSON.stringify([newAct, ...currentActs]));
     }
 
+    // Update state & localStorage immediately
     syncVaccinationsToStorage(updatedVacs, updatedExpenses);
 
-    setNotice(`✅ Vaccine & Transaction Amount (${formatCurrency(costVal)}) linked across Dashboard, Expense Tracker & Admin Panel!`);
+    setNotice(`✅ Vaccine & Transaction Amount (${formatCurrency(costVal)}) saved & linked across Dashboard!`);
     setTimeout(() => setNotice(null), 4500);
 
     setDoseCount('1');
