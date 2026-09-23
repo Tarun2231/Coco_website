@@ -9,7 +9,7 @@ import { ExpensesWidget } from '@/components/dashboard/ExpensesWidget';
 import { ActivityLogWidget } from '@/components/dashboard/ActivityLogWidget';
 import { LostModeBanner } from '@/components/pet/LostModeBanner';
 import { AddPetModal } from '@/components/pet/AddPetModal';
-import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode } from 'lucide-react';
+import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode, Trash2 } from 'lucide-react';
 import { Pet, Expense, Reminder } from '@/types';
 import { Button } from '@/components/ui/Button';
 
@@ -82,7 +82,6 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
   useEffect(() => {
     fetchPets();
 
-    // 8-second cross-device real-time sync polling
     const timer = setInterval(() => {
       fetchPets();
     }, 8000);
@@ -113,6 +112,30 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     fetchPets();
   };
 
+  const handleDeletePet = async (petToDelete: Pet) => {
+    if (!petToDelete) return;
+    const confirmed = window.confirm(`Are you sure you want to remove "${petToDelete.name}" from your owner dashboard?`);
+    if (!confirmed) return;
+
+    const remainingPets = pets.filter((p) => p.id !== petToDelete.id && p.publicId !== petToDelete.publicId);
+    setPets(remainingPets);
+
+    if (selectedPet?.id === petToDelete.id || selectedPet?.publicId === petToDelete.publicId) {
+      setSelectedPet(remainingPets.length > 0 ? remainingPets[0] : null);
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('puppy_id_pets', JSON.stringify(remainingPets));
+      window.dispatchEvent(new Event('puppy_id_pets_updated'));
+    }
+
+    try {
+      await fetch(`/api/pets?petId=${petToDelete.id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Delete pet error:', err);
+    }
+  };
+
   const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
 
   const vaccinations = (currentPet as any)?.vaccinations || [];
@@ -128,11 +151,21 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
             Dashboard
           </h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
-            Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}! Here&apos;s what&apos;s happening with{' '}
+          <p className="text-sm text-slate-500 font-medium mt-1 flex items-center flex-wrap gap-1.5">
+            <span>Welcome back{userName ? `, ${userName.split(' ')[0]}` : ''}! Managing</span>
             <span className="font-extrabold text-slate-800">
               {currentPet?.name || 'your registered pets'}
-            </span>.
+            </span>
+            {currentPet && (
+              <button
+                onClick={() => handleDeletePet(currentPet)}
+                title={`Delete ${currentPet.name}`}
+                className="ml-2 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 inline-flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Delete Pet</span>
+              </button>
+            )}
           </p>
         </div>
 
@@ -141,6 +174,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
           selectedPet={currentPet}
           onSelectPet={(p) => setSelectedPet(p)}
           onAddPetClick={() => setIsAddPetOpen(true)}
+          onDeletePetClick={handleDeletePet}
         />
       </div>
 

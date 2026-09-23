@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { syncFromCloudStore, addPetToStore } from '@/lib/store';
+import { syncFromCloudStore, addPetToStore, deletePetFromStore } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,5 +20,20 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('Add pet error:', err);
     return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const petId = searchParams.get('petId');
+    if (!petId) {
+      return NextResponse.json({ error: 'petId is required' }, { status: 400 });
+    }
+    const success = await deletePetFromStore(petId);
+    return NextResponse.json({ success });
+  } catch (err) {
+    console.error('Delete pet route error:', err);
+    return NextResponse.json({ error: 'Failed to delete pet' }, { status: 500 });
   }
 }
