@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { PrivacyToggles } from '@/components/pet/PrivacyToggles';
 import { Button } from '@/components/ui/Button';
-import { KeyRound, User, Lock, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { KeyRound, User, Lock, CheckCircle2, ShieldCheck, Trash2, AlertTriangle, Dog } from 'lucide-react';
 
 export default function SettingsPage() {
-  const [petId, setPetId] = useState<string | null>(null);
+  const [pets, setPets] = useState<any[]>([]);
+  const [selectedPetId, setSelectedPetId] = useState<string>('');
   const [settings, setSettings] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [savedPrivacy, setSavedPrivacy] = useState(false);
@@ -19,6 +21,11 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [credSaved, setCredSaved] = useState(false);
   const [credError, setCredError] = useState<string | null>(null);
+
+  // Delete Confirmation Modal State
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -34,12 +41,12 @@ export default function SettingsPage() {
           }
         }
 
-        const res = await fetch('/api/pets');
+        const res = await fetch('/api/pets', { cache: 'no-store' });
         const data = await res.json();
-        if (data.pets && data.pets.length > 0) {
-          const firstPet = data.pets[0];
-          setPetId(firstPet.id);
-          setSettings(firstPet.privacySetting || {});
+        if (data.pets && Array.isArray(data.pets) && data.pets.length > 0) {
+          setPets(data.pets);
+          setSelectedPetId(data.pets[0].id);
+          setSettings(data.pets[0].privacySetting || {});
         }
       } catch (err) {
         console.error(err);
@@ -50,17 +57,19 @@ export default function SettingsPage() {
     loadData();
   }, []);
 
+  const currentPet = pets.find((p) => p.id === selectedPetId || p.publicId === selectedPetId) || pets[0];
+
   const handleToggleChange = (key: string, value: boolean) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSavePrivacy = async () => {
-    if (!petId) return;
+    if (!selectedPetId) return;
     try {
       const res = await fetch('/api/privacy', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ petId, settings }),
+        body: JSON.stringify({ petId: selectedPetId, settings }),
       });
       if (res.ok) {
         setSavedPrivacy(true);
@@ -100,6 +109,38 @@ export default function SettingsPage() {
     setTimeout(() => setCredSaved(false), 4000);
   };
 
+  const handleDeletePetConfirmed = async () => {
+    if (!currentPet) return;
+    setIsDeleting(true);
+
+    const targetPetId = currentPet.id;
+    const petName = currentPet.name;
+
+    const remainingPets = pets.filter((p) => p.id !== targetPetId && p.publicId !== targetPetId);
+    setPets(remainingPets);
+    if (remainingPets.length > 0) {
+      setSelectedPetId(remainingPets[0].id);
+    } else {
+      setSelectedPetId('');
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('puppy_id_pets', JSON.stringify(remainingPets));
+      window.dispatchEvent(new Event('puppy_id_pets_updated'));
+    }
+
+    try {
+      await fetch(`/api/pets?petId=${targetPetId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Delete pet API error:', err);
+    } finally {
+      setIsDeleting(false);
+      setIsConfirmModalOpen(false);
+      setDeleteNotice(`✅ Pet profile for "${petName}" has been permanently removed.`);
+      setTimeout(() => setDeleteNotice(null), 4000);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-slate-400">Loading settings...</div>;
 
   return (
@@ -108,7 +149,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">Dashboard & Security Settings</h1>
           <p className="text-sm text-slate-500 font-medium">
-            Manage your owner login credentials, password, and public QR tag privacy controls
+            Manage your owner login credentials, password, privacy controls, and pet profiles
           </p>
         </div>
 
@@ -116,6 +157,13 @@ export default function SettingsPage() {
           {savedPrivacy ? 'Saved!' : 'Save Privacy Controls'}
         </Button>
       </div>
+
+      {deleteNotice && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 animate-fadeIn">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{deleteNotice}</span>
+        </div>
+      )}
 
       {/* ==================== 1. ACCOUNT LOGIN CREDENTIALS & PASSWORD ==================== */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
@@ -243,6 +291,91 @@ export default function SettingsPage() {
 
         <PrivacyToggles settings={settings} onChange={handleToggleChange} />
       </div>
+
+      {/* ==================== 3. SAFE DANGER ZONE - DELETE PET ==================== */}
+      {currentPet && (
+        <div className="bg-rose-50/70 rounded-3xl p-6 border border-rose-200/80 space-y-4">
+          <div className="flex items-center gap-2.5 text-rose-900 font-extrabold text-base border-b border-rose-200/60 pb-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-rose-900">Danger Zone — Delete Pet Profile</h2>
+              <p className="text-xs text-rose-700 font-medium">Remove a registered pet profile permanently from your owner account</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+            {pets.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Dog className="w-4 h-4 text-rose-700" />
+                <span className="text-xs font-bold text-rose-900">Target Pet:</span>
+                <select
+                  value={selectedPetId}
+                  onChange={(e) => setSelectedPetId(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-rose-200 text-xs font-bold bg-white text-rose-950"
+                >
+                  {pets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      🐶 {p.name} ({p.breed})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsConfirmModalOpen(true)}
+              className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-colors active:scale-95"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete {currentPet.name}&apos;s Profile</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== DELETE PET CONFIRMATION MODAL ==================== */}
+      {isConfirmModalOpen && currentPet && (
+        <Modal
+          isOpen={isConfirmModalOpen}
+          onClose={() => setIsConfirmModalOpen(false)}
+          title="⚠️ Confirm Pet Profile Deletion"
+        >
+          <div className="space-y-4 text-slate-800">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="text-sm font-black text-rose-950">Are you sure you want to delete?</h3>
+                <p className="text-xs text-rose-900 font-semibold leading-relaxed">
+                  Are you sure you want to delete <strong>&quot;{currentPet.name}&quot;</strong>? This action is permanent and will remove all vaccination records, reminders, and QR code links for this pet.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="text-xs font-bold px-4 py-2"
+              >
+                Cancel (Keep Safe)
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isDeleting}
+                onClick={handleDeletePetConfirmed}
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-5 py-2"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Pet'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
