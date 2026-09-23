@@ -55,23 +55,10 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       if (res.ok) {
         const data = await res.json();
         if (data.pets && Array.isArray(data.pets)) {
-          setPets((prevLocal) => {
-            const map = new Map<string, any>();
-            data.pets.forEach((p: any) => map.set(p.id, p));
-
-            // Merge local entries not yet in server data
-            prevLocal.forEach((p: any) => {
-              if (!map.has(p.id)) {
-                map.set(p.id, p);
-              }
-            });
-
-            const merged = Array.from(map.values());
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
-            }
-            return merged;
-          });
+          setPets(data.pets);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
+          }
         }
       }
     } catch (err) {
@@ -84,7 +71,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
 
     const timer = setInterval(() => {
       fetchPets();
-    }, 8000);
+    }, 6000);
 
     const handleStorageUpdate = () => fetchPets();
     window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);

@@ -113,27 +113,10 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.pets)) {
-          setPets((prevLocal) => {
-            const map = new Map<string, any>();
-            data.pets.forEach((p: any) => map.set(p.id, p));
-
-            prevLocal.forEach((p: any) => {
-              if (!map.has(p.id)) {
-                map.set(p.id, p);
-                fetch('/api/pets', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(p),
-                }).catch(console.error);
-              }
-            });
-
-            const merged = Array.from(map.values());
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
-            }
-            return merged;
-          });
+          setPets(data.pets);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
+          }
         }
       }
     } catch (err) {
