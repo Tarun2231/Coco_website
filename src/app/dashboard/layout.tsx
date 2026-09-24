@@ -36,15 +36,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Direct Switch Link to Admin Studio */}
-            <Link
-              href="/admin/pets"
-              className="px-3.5 py-1.5 bg-brand-coral/10 hover:bg-brand-coral/20 text-brand-coral font-black text-xs rounded-xl border border-brand-coral/30 flex items-center gap-1.5 transition-all shadow-xs"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>👑 Admin Studio</span>
-            </Link>
-
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
               <div className="w-6 h-6 rounded-full bg-brand-coral text-white flex items-center justify-center font-bold text-[10px] shrink-0">
                 {user.avatar ? (

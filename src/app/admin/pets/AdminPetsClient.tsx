@@ -108,7 +108,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   const syncServerPets = useCallback(async () => {
     try {
       setIsSyncing(true);
-      const res = await fetch('/api/pets', { cache: 'no-store' });
+      const res = await fetch(`/api/pets?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.pets)) {
@@ -132,16 +138,34 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     }
   }, []);
 
-  // Sync on mount, window focus & automatic 8-second interval polling
+  // Sync on mount, window focus & automatic interval polling
   useEffect(() => {
     syncServerPets();
 
+    const timer = setInterval(() => {
+      syncServerPets();
+    }, 5000);
+
     const handleUpdate = () => syncServerPets();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncServerPets();
+      }
+    };
+
     window.addEventListener('focus', handleUpdate);
     window.addEventListener('puppy_id_pets_updated', handleUpdate);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleUpdate);
+    window.addEventListener('online', handleUpdate);
+
     return () => {
+      clearInterval(timer);
       window.removeEventListener('focus', handleUpdate);
       window.removeEventListener('puppy_id_pets_updated', handleUpdate);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleUpdate);
+      window.removeEventListener('online', handleUpdate);
     };
   }, [syncServerPets]);
 

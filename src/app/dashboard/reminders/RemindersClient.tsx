@@ -55,7 +55,13 @@ export const RemindersClient: React.FC<RemindersClientProps> = ({
   useEffect(() => {
     const fetchLatest = async () => {
       try {
-        const res = await fetch('/api/pets', { cache: 'no-store' });
+        const res = await fetch(`/api/pets?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.pets) && data.pets.length > 0) {
@@ -74,6 +80,32 @@ export const RemindersClient: React.FC<RemindersClientProps> = ({
       }
     };
     fetchLatest();
+
+    const timer = setInterval(() => {
+      fetchLatest();
+    }, 4000);
+
+    const handleUpdate = () => fetchLatest();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchLatest();
+      }
+    };
+
+    window.addEventListener('puppy_id_pets_updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleUpdate);
+    window.addEventListener('online', handleUpdate);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('puppy_id_pets_updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleUpdate);
+      window.removeEventListener('online', handleUpdate);
+    };
   }, [selectedPetId]);
 
   const [title, setTitle] = useState('');

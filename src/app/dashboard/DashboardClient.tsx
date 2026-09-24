@@ -26,7 +26,9 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return mergePetRecords(parsed, initialPets);
+          }
         } catch (e) {
           console.error('Failed to parse localStorage pets:', e);
         }
@@ -52,7 +54,13 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
 
   const fetchPets = useCallback(async () => {
     try {
-      const res = await fetch('/api/pets', { cache: 'no-store' });
+      const res = await fetch(`/api/pets?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.pets && Array.isArray(data.pets) && data.pets.length > 0) {
@@ -75,16 +83,28 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
 
     const timer = setInterval(() => {
       fetchPets();
-    }, 5000);
+    }, 4000);
 
-    const handleStorageUpdate = () => fetchPets();
-    window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
-    window.addEventListener('focus', handleStorageUpdate);
+    const handleUpdate = () => fetchPets();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPets();
+      }
+    };
+
+    window.addEventListener('puppy_id_pets_updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handleUpdate);
+    window.addEventListener('online', handleUpdate);
 
     return () => {
       clearInterval(timer);
-      window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
-      window.removeEventListener('focus', handleStorageUpdate);
+      window.removeEventListener('puppy_id_pets_updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleUpdate);
+      window.removeEventListener('online', handleUpdate);
     };
   }, [fetchPets]);
 
