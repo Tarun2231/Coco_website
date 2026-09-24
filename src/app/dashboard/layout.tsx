@@ -2,7 +2,7 @@ import React from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { User, PawPrint, SlidersHorizontal } from 'lucide-react';
+import { User, PawPrint } from 'lucide-react';
 import Link from 'next/link';
 
 export const revalidate = 0;
