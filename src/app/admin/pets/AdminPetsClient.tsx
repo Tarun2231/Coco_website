@@ -105,7 +105,6 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     });
   };
 
-  // Cross-device sync fetcher: Merges cloud pets with local pets without losing new entries
   const syncServerPets = useCallback(async () => {
     try {
       setIsSyncing(true);
@@ -116,6 +115,13 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
           setPets(data.pets);
           if (typeof window !== 'undefined') {
             localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
+            window.dispatchEvent(new Event('puppy_id_pets_updated'));
+          }
+        }
+        if (Array.isArray(data.activities) && data.activities.length > 0) {
+          setActivityLogs(data.activities);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('puppy_id_activities', JSON.stringify(data.activities));
           }
         }
       }
