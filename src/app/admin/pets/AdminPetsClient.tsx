@@ -130,15 +130,12 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
   useEffect(() => {
     syncServerPets();
 
-    const timer = setInterval(() => {
-      syncServerPets();
-    }, 8000);
-
-    const handleFocus = () => syncServerPets();
-    window.addEventListener('focus', handleFocus);
+    const handleUpdate = () => syncServerPets();
+    window.addEventListener('focus', handleUpdate);
+    window.addEventListener('puppy_id_pets_updated', handleUpdate);
     return () => {
-      clearInterval(timer);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleUpdate);
+      window.removeEventListener('puppy_id_pets_updated', handleUpdate);
     };
   }, [syncServerPets]);
 

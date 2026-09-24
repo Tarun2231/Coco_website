@@ -6,13 +6,21 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const petId = searchParams.get('petId');
+  const vacId = searchParams.get('vacId') || searchParams.get('id');
 
   if (!petId) {
     return NextResponse.json({ error: 'petId required' }, { status: 400 });
   }
 
   const pet = getPetById(petId);
-  return NextResponse.json({ vaccinations: pet?.vaccinations || [] });
+  const vaccinations = pet?.vaccinations || [];
+
+  if (vacId) {
+    const vaccination = vaccinations.find((v) => String(v.id).trim().toLowerCase() === String(vacId).trim().toLowerCase());
+    return NextResponse.json({ vaccination: vaccination || null });
+  }
+
+  return NextResponse.json({ vaccinations });
 }
 
 export async function POST(req: Request) {

@@ -3,8 +3,10 @@ import { syncFromCloudStore, addPetToStore, deletePetFromStore } from '@/lib/sto
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const { pets, activities } = await syncFromCloudStore();
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const force = searchParams.get('force') === 'true';
+  const { pets, activities } = await syncFromCloudStore(force);
   return NextResponse.json({ pets, activities });
 }
 

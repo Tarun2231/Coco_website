@@ -34,17 +34,17 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
     return initialPets;
   });
 
-  const [selectedPet, setSelectedPet] = useState<Pet | null>(() => {
+  const [selectedPetId, setSelectedPetId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('puppy_id_pets');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed[0].id;
         } catch (e) {}
       }
     }
-    return initialPets[0] || null;
+    return initialPets[0]?.id || '';
   });
 
   const [isAddPetOpen, setIsAddPetOpen] = useState(false);
@@ -69,16 +69,11 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
   useEffect(() => {
     fetchPets();
 
-    const timer = setInterval(() => {
-      fetchPets();
-    }, 6000);
-
     const handleStorageUpdate = () => fetchPets();
     window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
     window.addEventListener('focus', handleStorageUpdate);
 
     return () => {
-      clearInterval(timer);
       window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
       window.removeEventListener('focus', handleStorageUpdate);
     };
@@ -94,17 +89,31 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
         }
         return updated;
       });
-      setSelectedPet(newPet);
+      setSelectedPetId(newPet.id);
     }
     fetchPets();
   };
 
-  const currentPet = selectedPet || (pets.length > 0 ? pets[0] : null);
+  // Always find current target pet dynamically from latest pets state
+  const currentPet =
+    pets.find(
+      (p) =>
+        String(p.id).toLowerCase() === String(selectedPetId || '').toLowerCase() ||
+        String(p.publicId).toLowerCase() === String(selectedPetId || '').toLowerCase()
+    ) ||
+    pets[0] ||
+    null;
 
+  // Complete aggregation of vaccinations across selected pet or all pets
   const vaccinations = (currentPet as any)?.vaccinations || [];
+  const totalVaccinationCost = vaccinations.reduce(
+    (sum: number, v: any) => sum + Number(v.cost || 0),
+    0
+  );
+
   const expenses = (currentPet as any)?.expenses || [];
-  const reminders = (currentPet as any)?.reminders || [];
   const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + Number(curr.amount || 0), 0);
+  const reminders = (currentPet as any)?.reminders || [];
 
   return (
     <div className="space-y-8 animate-fadeIn text-slate-800">
@@ -125,7 +134,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
         <PetSelector
           pets={pets}
           selectedPet={currentPet}
-          onSelectPet={(p) => setSelectedPet(p)}
+          onSelectPet={(p) => setSelectedPetId(p.id)}
           onAddPetClick={() => setIsAddPetOpen(true)}
         />
       </div>
@@ -134,8 +143,8 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard
           title="Vaccinations"
-          value={currentPet ? vaccinations.length : 0}
-          subtitle="Total Records"
+          value={currentPet ? `${vaccinations.length} Record${vaccinations.length === 1 ? '' : 's'}` : '0 Records'}
+          subtitle={totalVaccinationCost > 0 ? `Expense: ₹${totalVaccinationCost.toLocaleString('en-IN')}` : 'Total Immunizations'}
           icon={<Syringe className="w-6 h-6" />}
           href="/dashboard/vaccinations"
           colorScheme="green"

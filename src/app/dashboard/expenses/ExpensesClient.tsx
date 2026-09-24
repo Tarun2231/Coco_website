@@ -59,6 +59,7 @@ export const ExpensesClient: React.FC<ExpensesClientProps> = ({ initialExpenses,
               return p;
             });
             localStorage.setItem('puppy_id_pets', JSON.stringify(updatedPets));
+            window.dispatchEvent(new Event('puppy_id_pets_updated'));
           }
         } catch (e) {
           console.error(e);
@@ -66,6 +67,35 @@ export const ExpensesClient: React.FC<ExpensesClientProps> = ({ initialExpenses,
       }
     }
   };
+
+  React.useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch('/api/pets', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.pets) && data.pets.length > 0) {
+            const currentPet = data.pets.find((p: any) => p.id === petId || p.publicId === petId) || data.pets[0];
+            if (currentPet && currentPet.expenses) {
+              setExpenses(currentPet.expenses);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Fetch expenses error:', e);
+      }
+    };
+    fetchLatest();
+
+    const handleUpdate = () => fetchLatest();
+    window.addEventListener('puppy_id_pets_updated', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+
+    return () => {
+      window.removeEventListener('puppy_id_pets_updated', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+    };
+  }, [petId]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();

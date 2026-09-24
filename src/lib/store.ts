@@ -54,6 +54,7 @@ export interface VaccinationRecord {
   vetName?: string;
   clinic?: string;
   notes?: string;
+  photo?: string;
   status: 'COMPLETED' | 'UPCOMING' | 'OVERDUE';
 }
 
@@ -93,6 +94,7 @@ export interface ActivityLogRecord {
 const globalForStore = globalThis as unknown as {
   petsStore: PetRecord[] | undefined;
   activityStore: ActivityLogRecord[] | undefined;
+  lastSyncTime: number | undefined;
 };
 
 if (!globalForStore.petsStore) {
@@ -101,12 +103,28 @@ if (!globalForStore.petsStore) {
 if (!globalForStore.activityStore) {
   globalForStore.activityStore = [];
 }
+if (!globalForStore.lastSyncTime) {
+  globalForStore.lastSyncTime = 0;
+}
 
 export const petsStore = globalForStore.petsStore;
 export const activityStore = globalForStore.activityStore;
 
-// Sync from Cloud Store
-export async function syncFromCloudStore(): Promise<{ pets: PetRecord[]; activities: ActivityLogRecord[] }> {
+const CACHE_TTL_MS = 10000; // 10s memory cache for fast navigation
+
+// Sync from Cloud Store with memory caching
+export async function syncFromCloudStore(force: boolean = false): Promise<{ pets: PetRecord[]; activities: ActivityLogRecord[] }> {
+  const now = Date.now();
+  if (
+    !force &&
+    globalForStore.petsStore &&
+    globalForStore.petsStore.length > 0 &&
+    globalForStore.lastSyncTime &&
+    now - globalForStore.lastSyncTime < CACHE_TTL_MS
+  ) {
+    return { pets: globalForStore.petsStore, activities: globalForStore.activityStore || [] };
+  }
+
   try {
     const res = await fetch(CLOUD_API_URL, { cache: 'no-store' });
     if (res.ok) {
@@ -115,6 +133,7 @@ export async function syncFromCloudStore(): Promise<{ pets: PetRecord[]; activit
       const activities = body?.data?.activities && Array.isArray(body.data.activities) ? body.data.activities : globalForStore.activityStore || [];
       globalForStore.petsStore = pets;
       globalForStore.activityStore = activities;
+      globalForStore.lastSyncTime = Date.now();
       return { pets, activities };
     }
   } catch (err) {
@@ -128,13 +147,21 @@ export async function saveToCloudStore(pets: PetRecord[], activities?: ActivityL
   try {
     globalForStore.petsStore = pets;
     if (activities) globalForStore.activityStore = activities;
+    globalForStore.lastSyncTime = Date.now();
 
     const sanitizedPets = pets.map((p) => {
       let photo = p.photo;
       if (photo && photo.length > 2000 && photo.startsWith('data:')) {
         photo = 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&h=600&fit=crop';
       }
-      return { ...p, photo };
+      const vaccinations = (p.vaccinations || []).map((v) => {
+        let vacPhoto = v.photo;
+        if (vacPhoto && vacPhoto.length > 2000 && vacPhoto.startsWith('data:')) {
+          vacPhoto = 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&h=600&fit=crop';
+        }
+        return { ...v, photo: vacPhoto };
+      });
+      return { ...p, photo, vaccinations };
     });
 
     const currentActivities = activities || globalForStore.activityStore || [];
@@ -307,6 +334,7 @@ export async function addVaccinationToStore(petId: string, vacData: Partial<Vacc
     vetName: vacData.vetName || 'Dr. Rahul Verma',
     clinic: vacData.clinic || 'Banjara Vet Hospital',
     notes: vacData.notes,
+    photo: vacData.photo,
     status: (vacData.status as any) || 'COMPLETED',
   };
 
@@ -391,10 +419,44 @@ export async function updateVaccinationInStore(petId: string, vacId: string, upd
   let pet = currentPets.find((p) => String(p.id).trim().toLowerCase() === search || String(p.publicId).trim().toLowerCase() === search);
   if (!pet && currentPets.length > 0) pet = currentPets[0];
 
-  if (pet) {
-    const idx = pet.vaccinations.findIndex((v) => v.id === vacId);
+  if (pet && pet.vaccinations) {
+    const idx = pet.vaccinations.findIndex((v) => String(v.id).trim().toLowerCase() === String(vacId).trim().toLowerCase());
     if (idx !== -1) {
-      pet.vaccinations[idx] = { ...pet.vaccinations[idx], ...updates };
+      const existing = pet.vaccinations[idx];
+      const photo = updates.photo !== undefined ? updates.photo : existing.photo;
+      pet.vaccinations[idx] = { ...existing, ...updates, photo };
+
+      // Update linked expense if cost/clinic/vaccineName updated
+      if (pet.expenses) {
+        const vacExpId = `exp-vac-${vacId}`;
+        const expIdx = pet.expenses.findIndex((e) => e.id === vacExpId);
+        const newCost = Number(pet.vaccinations[idx].cost || 0);
+        if (expIdx !== -1) {
+          if (newCost > 0) {
+            pet.expenses[expIdx] = {
+              ...pet.expenses[expIdx],
+              description: `Vaccination: ${pet.vaccinations[idx].vaccineName}`,
+              amount: newCost,
+              vendor: pet.vaccinations[idx].clinic || 'Vet Clinic',
+              date: pet.vaccinations[idx].dateAdministered,
+            };
+          } else {
+            pet.expenses.splice(expIdx, 1);
+          }
+        } else if (newCost > 0) {
+          pet.expenses.unshift({
+            id: vacExpId,
+            petId: pet.id,
+            category: 'Vaccination',
+            description: `Vaccination: ${pet.vaccinations[idx].vaccineName}`,
+            amount: newCost,
+            currency: '₹',
+            date: pet.vaccinations[idx].dateAdministered,
+            vendor: pet.vaccinations[idx].clinic || 'Vet Clinic',
+          });
+        }
+      }
+
       await saveToCloudStore(currentPets, activities);
       return pet.vaccinations[idx];
     }
