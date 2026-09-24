@@ -174,11 +174,16 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
     };
     fetchLatest();
 
+    const timer = setInterval(() => {
+      fetchLatest();
+    }, 5000);
+
     const handleStorageUpdate = () => fetchLatest();
     window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
     window.addEventListener('focus', handleStorageUpdate);
 
     return () => {
+      clearInterval(timer);
       window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
       window.removeEventListener('focus', handleStorageUpdate);
     };

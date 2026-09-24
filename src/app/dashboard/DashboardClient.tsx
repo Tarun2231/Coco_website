@@ -69,11 +69,16 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
   useEffect(() => {
     fetchPets();
 
+    const timer = setInterval(() => {
+      fetchPets();
+    }, 5000);
+
     const handleStorageUpdate = () => fetchPets();
     window.addEventListener('puppy_id_pets_updated', handleStorageUpdate);
     window.addEventListener('focus', handleStorageUpdate);
 
     return () => {
+      clearInterval(timer);
       window.removeEventListener('puppy_id_pets_updated', handleStorageUpdate);
       window.removeEventListener('focus', handleStorageUpdate);
     };

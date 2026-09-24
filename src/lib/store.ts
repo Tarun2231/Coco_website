@@ -110,31 +110,17 @@ if (!globalForStore.lastSyncTime) {
 export const petsStore = globalForStore.petsStore;
 export const activityStore = globalForStore.activityStore;
 
-const CACHE_TTL_MS = 10000; // 10s memory cache for fast navigation
-
-// Sync from Cloud Store with memory caching
-export async function syncFromCloudStore(force: boolean = false): Promise<{ pets: PetRecord[]; activities: ActivityLogRecord[] }> {
-  const now = Date.now();
-  if (
-    !force &&
-    globalForStore.petsStore &&
-    globalForStore.petsStore.length > 0 &&
-    globalForStore.lastSyncTime &&
-    now - globalForStore.lastSyncTime < CACHE_TTL_MS
-  ) {
-    return { pets: globalForStore.petsStore, activities: globalForStore.activityStore || [] };
-  }
-
+// Sync from Cloud Store (always fetches authoritative cloud data)
+export async function syncFromCloudStore(): Promise<{ pets: PetRecord[]; activities: ActivityLogRecord[] }> {
   try {
     const res = await fetch(CLOUD_API_URL, { cache: 'no-store' });
     if (res.ok) {
       const body = await res.json();
-      const pets = body?.data?.pets && Array.isArray(body.data.pets) ? body.data.pets : globalForStore.petsStore || [];
-      const activities = body?.data?.activities && Array.isArray(body.data.activities) ? body.data.activities : globalForStore.activityStore || [];
-      globalForStore.petsStore = pets;
-      globalForStore.activityStore = activities;
-      globalForStore.lastSyncTime = Date.now();
-      return { pets, activities };
+      if (body?.data?.pets && Array.isArray(body.data.pets)) {
+        globalForStore.petsStore = body.data.pets;
+        globalForStore.activityStore = body.data.activities || [];
+        return { pets: body.data.pets, activities: body.data.activities || [] };
+      }
     }
   } catch (err) {
     console.error('Cloud store sync GET error:', err);

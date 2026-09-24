@@ -139,10 +139,11 @@ export const AdminPetsClient: React.FC<AdminPetsClientProps> = ({ initialPets })
     };
   }, [syncServerPets]);
 
-  // Keep localStorage updated on every state mutation
+  // Keep localStorage updated & dispatch sync event on every state mutation
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('puppy_id_pets', JSON.stringify(pets));
+      window.dispatchEvent(new Event('puppy_id_pets_updated'));
     }
   }, [pets]);
 
