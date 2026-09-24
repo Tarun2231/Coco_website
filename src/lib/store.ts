@@ -524,3 +524,49 @@ export async function addReminderToStore(petId: string, remData: Partial<Reminde
   }
   return newRem;
 }
+
+export function mergePetRecords(existingPets: any[], incomingPets: any[]): any[] {
+  if (!Array.isArray(incomingPets) || incomingPets.length === 0) return existingPets || [];
+  if (!Array.isArray(existingPets) || existingPets.length === 0) return incomingPets;
+
+  const map = new Map<string, any>();
+
+  existingPets.forEach((p) => {
+    if (p && (p.id || p.publicId)) {
+      const key = String(p.id || p.publicId).toLowerCase();
+      map.set(key, { ...p });
+    }
+  });
+
+  incomingPets.forEach((incoming) => {
+    if (!incoming || (!incoming.id && !incoming.publicId)) return;
+    const key = String(incoming.id || incoming.publicId).toLowerCase();
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, { ...incoming });
+    } else {
+      const vacMap = new Map<string, any>();
+      (existing.vaccinations || []).forEach((v: any) => v && v.id && vacMap.set(String(v.id).toLowerCase(), v));
+      (incoming.vaccinations || []).forEach((v: any) => v && v.id && vacMap.set(String(v.id).toLowerCase(), v));
+
+      const expMap = new Map<string, any>();
+      (existing.expenses || []).forEach((e: any) => e && e.id && expMap.set(String(e.id).toLowerCase(), e));
+      (incoming.expenses || []).forEach((e: any) => e && e.id && expMap.set(String(e.id).toLowerCase(), e));
+
+      const remMap = new Map<string, any>();
+      (existing.reminders || []).forEach((r: any) => r && r.id && remMap.set(String(r.id).toLowerCase(), r));
+      (incoming.reminders || []).forEach((r: any) => r && r.id && remMap.set(String(r.id).toLowerCase(), r));
+
+      map.set(key, {
+        ...existing,
+        ...incoming,
+        vaccinations: Array.from(vacMap.values()),
+        expenses: Array.from(expMap.values()),
+        reminders: Array.from(remMap.values()),
+      });
+    }
+  });
+
+  return Array.from(map.values());
+}

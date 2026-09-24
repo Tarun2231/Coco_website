@@ -287,7 +287,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
           return {
             ...p,
             vaccinations: updatedVacs,
-            expenses: updatedExpenses || p.expenses || [],
+            expenses: updatedExpenses !== undefined ? updatedExpenses : (p.expenses || []),
           };
         }
         return p;
@@ -297,7 +297,7 @@ export const VaccinationsClient: React.FC<VaccinationsClientProps> = ({
         updatedPets[0] = {
           ...updatedPets[0],
           vaccinations: updatedVacs,
-          expenses: updatedExpenses || updatedPets[0].expenses || [],
+          expenses: updatedExpenses !== undefined ? updatedExpenses : (updatedPets[0].expenses || []),
         };
       }
 

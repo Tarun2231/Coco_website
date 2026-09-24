@@ -12,6 +12,7 @@ import { AddPetModal } from '@/components/pet/AddPetModal';
 import { Syringe, DollarSign, Bell, Eye, Heart, Plus, Dog, QrCode } from 'lucide-react';
 import { Pet, Expense, Reminder } from '@/types';
 import { Button } from '@/components/ui/Button';
+import { mergePetRecords } from '@/lib/store';
 
 interface DashboardClientProps {
   initialPets: Pet[];
@@ -54,11 +55,14 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
       const res = await fetch('/api/pets', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (data.pets && Array.isArray(data.pets)) {
-          setPets(data.pets);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('puppy_id_pets', JSON.stringify(data.pets));
-          }
+        if (data.pets && Array.isArray(data.pets) && data.pets.length > 0) {
+          setPets((prevPets) => {
+            const merged = mergePetRecords(prevPets, data.pets);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('puppy_id_pets', JSON.stringify(merged));
+            }
+            return merged;
+          });
         }
       }
     } catch (err) {
@@ -111,11 +115,6 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
 
   // Complete aggregation of vaccinations across selected pet or all pets
   const vaccinations = (currentPet as any)?.vaccinations || [];
-  const totalVaccinationCost = vaccinations.reduce(
-    (sum: number, v: any) => sum + Number(v.cost || 0),
-    0
-  );
-
   const expenses = (currentPet as any)?.expenses || [];
   const totalSpent = expenses.reduce((acc: number, curr: Expense) => acc + Number(curr.amount || 0), 0);
   const reminders = (currentPet as any)?.reminders || [];
@@ -149,7 +148,7 @@ export const DashboardClient: React.FC<DashboardClientProps> = ({ initialPets, u
         <StatCard
           title="Vaccinations"
           value={currentPet ? `${vaccinations.length} Record${vaccinations.length === 1 ? '' : 's'}` : '0 Records'}
-          subtitle={totalVaccinationCost > 0 ? `Expense: ₹${totalVaccinationCost.toLocaleString('en-IN')}` : 'Total Immunizations'}
+          subtitle="Total Immunizations"
           icon={<Syringe className="w-6 h-6" />}
           href="/dashboard/vaccinations"
           colorScheme="green"
